@@ -108,11 +108,21 @@ jobs:
           fi
 
   test-macos:
-    name: Smoke Test (macOS)
+    name: Smoke Test (macOS ${{ matrix.arch }})
     needs: resolve-version
     if: needs.resolve-version.outputs.has_release == 'true'
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: ARM64
+            dmg-pattern: "*_aarch64.dmg"
+          - runner: macos-15-intel
+            arch: x64
+            dmg-pattern: "*_x64.dmg"
 
     steps:
       - name: Download DMG from GitHub release
@@ -120,10 +130,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ needs.resolve-version.outputs.version }}"
-          echo "Downloading Treeline $VERSION for macOS..."
+          echo "Downloading Treeline $VERSION for macOS (${{ matrix.arch }})..."
           gh release download "$VERSION" \
             --repo ${{ github.repository }} \
-            --pattern "*.dmg" \
+            --pattern "${{ matrix.dmg-pattern }}" \
             --dir .
 
           DMG=$(ls *.dmg | head -1)
@@ -155,10 +165,10 @@ jobs:
           sleep 15
 
           if pgrep -x "$BINARY_NAME" > /dev/null; then
-            echo "✓ Treeline launched successfully on macOS (PID $(pgrep -x "$BINARY_NAME"))"
+            echo "✓ Treeline launched successfully on macOS ${{ matrix.arch }} (PID $(pgrep -x "$BINARY_NAME"))"
             pkill -x "$BINARY_NAME" || true
           else
-            echo "✗ Treeline is not running on macOS"
+            echo "✗ Treeline is not running on macOS ${{ matrix.arch }}"
             # Diagnostic info for debugging
             echo "--- Processes matching 'treeline' (case insensitive) ---"
             pgrep -il treeline || echo "(none)"
