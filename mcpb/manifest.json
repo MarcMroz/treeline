@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "treeline",
+  "display_name": "Treeline Money",
+  "version": "0.0.0",
+  "description": "Chat with your finances. Query balances, spending, budgets, and transactions from your local Treeline database.",
+  "long_description": "Treeline Money is a local-first personal finance app backed by DuckDB. This extension gives Claude direct access to your financial data — query balances, analyze spending, track budgets, tag transactions, and sync from your bank. All data stays on your device.",
+  "author": {
+    "name": "Treeline Money",
+    "url": "https://treeline.money"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/treeline-money/treeline"
+  },
+  "homepage": "https://treeline.money",
+  "documentation": "https://treeline.money/docs",
+  "support": "https://github.com/treeline-money/treeline/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/tl",
+    "mcp_config": {
+      "command": "${__dirname}/server/tl",
+      "args": ["mcp"]
+    }
+  },
+  "tools": [
+    { "name": "status", "description": "Get account summary including balances, transaction counts, and connected integrations." },
+    { "name": "query", "description": "Execute a read-only SQL query against the DuckDB database for financial analysis." },
+    { "name": "query_write", "description": "Execute a SQL query with write access (INSERT, UPDATE, DELETE, CREATE TABLE)." },
+    { "name": "sync", "description": "Sync accounts and transactions from connected bank integrations." },
+    { "name": "tag", "description": "Apply tags to transactions." },
+    { "name": "doctor", "description": "Run database health checks." },
+    { "name": "demo", "description": "Manage demo mode with sample financial data." },
+    { "name": "skills_list", "description": "List available user-created financial skills." },
+    { "name": "skills_read", "description": "Read a file from a skill directory." }
+  ],
+  "tools_generated": false,
+  "keywords": ["finance", "personal-finance", "budgeting", "duckdb", "local-first", "money"],
+  "license": "MIT",
+  "privacy_policies": ["https://treeline.money/privacy"],
+  "compatibility": {
+    "platforms": ["darwin", "win32"]
+  }
+}

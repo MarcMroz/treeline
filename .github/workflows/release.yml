@@ -367,6 +367,36 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           gh release upload "$VERSION" latest-staging.json --clobber
 
+      - name: Pack and upload MCPB extensions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Install mcpb CLI
+          npm install -g @anthropic-ai/mcpb
+
+          # Pack for each platform (no Linux — Claude Desktop doesn't support it)
+          for PLATFORM_SPEC in "macos-arm64:cli-macos-arm64/tl" "macos-x64:cli-macos-x64/tl" "windows-x64:cli-windows-x64/tl.exe"; do
+            PLATFORM="${PLATFORM_SPEC%%:*}"
+            BINARY_REL="${PLATFORM_SPEC#*:}"
+            BINARY_PATH="artifacts/$BINARY_REL"
+
+            if [ ! -f "$BINARY_PATH" ]; then
+              echo "Skipping $PLATFORM — binary not found at $BINARY_PATH"
+              continue
+            fi
+
+            echo "Packing $PLATFORM..."
+            bash mcpb/pack.sh "$BINARY_PATH" "$PLATFORM" "$VERSION" .
+
+            MCPB_FILE="treeline-${PLATFORM}.mcpb"
+            if [ -f "$MCPB_FILE" ]; then
+              gh release upload "$VERSION" "$MCPB_FILE" --clobber || true
+              echo "Uploaded $MCPB_FILE"
+            fi
+          done
+
       - name: Publish SDK to npm
         continue-on-error: true
         run: |

@@ -86,6 +86,11 @@ fn tool_definitions() -> Value {
                     "type": "object",
                     "properties": {},
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Account Status",
+                    "readOnlyHint": true,
+                    "openWorldHint": false
                 }
             },
             {
@@ -101,6 +106,11 @@ fn tool_definitions() -> Value {
                     },
                     "required": ["sql"],
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "SQL Query (Read-Only)",
+                    "readOnlyHint": true,
+                    "openWorldHint": false
                 }
             },
             {
@@ -116,6 +126,12 @@ fn tool_definitions() -> Value {
                     },
                     "required": ["sql"],
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "SQL Query (Read/Write)",
+                    "readOnlyHint": false,
+                    "destructiveHint": true,
+                    "openWorldHint": false
                 }
             },
             {
@@ -135,6 +151,12 @@ fn tool_definitions() -> Value {
                         }
                     },
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Sync Bank Data",
+                    "readOnlyHint": false,
+                    "destructiveHint": false,
+                    "openWorldHint": true
                 }
             },
             {
@@ -160,6 +182,13 @@ fn tool_definitions() -> Value {
                     },
                     "required": ["tags", "transaction_ids"],
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Tag Transactions",
+                    "readOnlyHint": false,
+                    "destructiveHint": false,
+                    "idempotentHint": true,
+                    "openWorldHint": false
                 }
             },
             {
@@ -169,6 +198,11 @@ fn tool_definitions() -> Value {
                     "type": "object",
                     "properties": {},
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Database Health Check",
+                    "readOnlyHint": true,
+                    "openWorldHint": false
                 }
             },
             {
@@ -185,6 +219,12 @@ fn tool_definitions() -> Value {
                     },
                     "required": ["action"],
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Demo Mode",
+                    "readOnlyHint": false,
+                    "destructiveHint": false,
+                    "openWorldHint": false
                 }
             },
             {
@@ -194,6 +234,11 @@ fn tool_definitions() -> Value {
                     "type": "object",
                     "properties": {},
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "List Skills",
+                    "readOnlyHint": true,
+                    "openWorldHint": false
                 }
             },
             {
@@ -209,6 +254,11 @@ fn tool_definitions() -> Value {
                     },
                     "required": ["path"],
                     "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Read Skill File",
+                    "readOnlyHint": true,
+                    "openWorldHint": false
                 }
             }
         ]
