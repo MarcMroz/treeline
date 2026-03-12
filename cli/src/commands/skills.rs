@@ -257,6 +257,48 @@ pub fn mcp_read(path: &str) -> Result<String, String> {
         .map_err(|e| format!("Failed to read {}: {}", path, e))
 }
 
+/// Write a file to a skill directory for MCP tool call
+pub fn mcp_write(path: &str, content: &str) -> Result<String, String> {
+    let treeline_dir = get_treeline_dir();
+    let skills_dir = treeline_dir.join("skills");
+
+    fs::create_dir_all(&skills_dir).map_err(|e| e.to_string())?;
+
+    // Validate path: must have at least skill_name/filename
+    let components: Vec<&str> = path.split('/').collect();
+    if components.len() < 2 {
+        return Err("Path must include skill name and filename (e.g. 'my-skill/SKILL.md')".to_string());
+    }
+
+    // Block path traversal
+    if components.iter().any(|c| *c == ".." || c.is_empty()) {
+        return Err("Invalid path: must not contain '..' or empty segments".to_string());
+    }
+
+    let target = skills_dir.join(path);
+
+    // Double-check resolved path is within skills dir
+    // (can't canonicalize yet since file may not exist, so check parent)
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+        let canonical_skills = skills_dir
+            .canonicalize()
+            .unwrap_or_else(|_| skills_dir.to_path_buf());
+        let canonical_parent = parent
+            .canonicalize()
+            .map_err(|e| format!("Invalid path: {}", e))?;
+        if !canonical_parent.starts_with(&canonical_skills) {
+            return Err("Path must be within the skills directory".to_string());
+        }
+    }
+
+    fs::write(&target, content)
+        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+
+    Ok(format!("Wrote {}", path))
+}
+
 /// List all files in a skill directory (relative paths)
 fn list_skill_files(skill_dir: &Path) -> Vec<String> {
     let mut files = Vec::new();

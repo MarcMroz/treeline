@@ -31,7 +31,7 @@ Agents create skills on your behalf by writing SKILL.md files to the skills dire
 - "Make a skill for my monthly budget targets"
 - "Save my tax category mappings as a skill"
 
-The agent will use `tl skills path` to find the directory and write the SKILL.md file.
+Agents connected via MCP use the `skills_write` tool directly. CLI-based agents (OpenClaw, Claude Code) use `tl skills path` to find the directory and write files.
 
 You can also create skills manually. A minimal skill:
 

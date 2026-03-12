@@ -260,6 +260,32 @@ fn tool_definitions() -> Value {
                     "readOnlyHint": true,
                     "openWorldHint": false
                 }
+            },
+            {
+                "name": "skills_write",
+                "description": "Write a file to a skill directory. Use to create or update skills on behalf of the user. Path must include skill name and filename, e.g. 'budget-targets/SKILL.md'. Directories are created automatically. SKILL.md files should have YAML frontmatter with name and description fields.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "File path relative to the skills directory (e.g. 'tax-categories/SKILL.md')"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "File content to write"
+                        }
+                    },
+                    "required": ["path", "content"],
+                    "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Write Skill File",
+                    "readOnlyHint": false,
+                    "destructiveHint": false,
+                    "idempotentHint": true,
+                    "openWorldHint": false
+                }
             }
         ]
     })
@@ -324,6 +350,18 @@ fn execute_tool(name: &str, args: &Value) -> Result<Value, String> {
                 .ok_or("Missing required parameter: path")?;
             let content = skills::mcp_read(path)?;
             Ok(json!({ "content": content }))
+        }
+        "skills_write" => {
+            let path = args
+                .get("path")
+                .and_then(|v| v.as_str())
+                .ok_or("Missing required parameter: path")?;
+            let content = args
+                .get("content")
+                .and_then(|v| v.as_str())
+                .ok_or("Missing required parameter: content")?;
+            let message = skills::mcp_write(path, content)?;
+            Ok(json!({ "message": message }))
         }
         _ => Err(format!("Unknown tool: {}", name)),
     }
