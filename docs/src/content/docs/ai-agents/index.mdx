@@ -1,0 +1,47 @@
+---
+title: AI & Agents
+description: Use AI agents to query, analyze, and manage your finances through Treeline.
+---
+
+Treeline is built for AI agents. Your financial data lives in a local DuckDB database that agents can query directly via SQL — no API keys, no rate limits, no cloud round-trips.
+
+## Why Local-First Matters for Agents
+
+Most finance apps store your data on their servers. An agent has to go through a rate-limited API, wait for network round-trips, and work within whatever endpoints the app exposes.
+
+Treeline is different. Your data is a file on your machine. An agent gets:
+
+- **Full SQL access** — any query, any join, any aggregation. Not limited to pre-built API endpoints.
+- **Zero latency** — DuckDB runs in-process. Queries return in milliseconds.
+- **No rate limits** — run as many queries as needed for complex analysis.
+- **Complete privacy** — your financial data never leaves your machine (unless you choose to share query results with a cloud LLM).
+
+## How Agents Connect
+
+There are three ways for an AI agent to work with Treeline:
+
+### MCP Server
+
+The [Model Context Protocol](https://modelcontextprotocol.io/) lets agents discover and use Treeline's tools. Works with Claude Desktop, Claude Code, Gemini CLI, Cursor, and any MCP-compatible client.
+
+[Set up the MCP server &rarr;](/ai-agents/mcp-server/)
+
+### CLI
+
+The `tl` command-line interface gives agents direct access to all Treeline features. Every command supports `--json` for structured output. Best for OpenClaw, Claude Code, and agent frameworks that can execute shell commands.
+
+[CLI for agents &rarr;](/ai-agents/cli-for-agents/)
+
+### OpenClaw
+
+The Treeline skill on ClawHub lets you chat with your finances through Discord, WhatsApp, Telegram, and more.
+
+[OpenClaw integration &rarr;](/ai-agents/openclaw/)
+
+## User Skills
+
+Agents can create and discover **skills** — reusable financial playbooks stored as SKILL.md files on your machine. A skill might define your tagging conventions, tax categories, or budget targets.
+
+Skills follow the open [Agent Skills standard](https://agentskills.io) and work across Claude Code, OpenClaw, VS Code, and other platforms that support the spec.
+
+[Learn about user skills &rarr;](/ai-agents/user-skills/)

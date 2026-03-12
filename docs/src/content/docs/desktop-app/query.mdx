@@ -49,7 +49,7 @@ For the complete database schema including all tables and columns, see [Database
 
 - Use `unnest(tags)` to expand tag arrays for grouping
 - Use `ILIKE '%term%'` for case-insensitive text matching
-- Date filtering: `transaction_date >= CURRENT_DATE - INTERVAL '30 days'`
+- Date filtering: `transaction_date >= now()::TIMESTAMP::DATE - INTERVAL '30 days'`
 
 ## Write Mode
 

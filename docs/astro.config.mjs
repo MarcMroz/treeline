@@ -29,6 +29,18 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'AI & Agents',
+					items: [
+						{ label: 'Overview', slug: 'ai-agents' },
+						{ label: 'MCP Server', slug: 'ai-agents/mcp-server' },
+						{ label: 'OpenClaw', slug: 'ai-agents/openclaw' },
+						{ label: 'Claude Code', slug: 'ai-agents/claude-code' },
+						{ label: 'CLI for Agents', slug: 'ai-agents/cli-for-agents' },
+						{ label: 'User Skills', slug: 'ai-agents/user-skills' },
+						{ label: 'Example Workflows', slug: 'ai-agents/example-workflows' },
+					],
+				},
+				{
 					label: 'Desktop App',
 					items: [
 						{ label: 'Accounts', slug: 'desktop-app/accounts' },
@@ -49,12 +61,10 @@ export default defineConfig({
 					],
 				},
 				{
-					label: 'Integrations',
+					label: 'Data Sources',
 					items: [
-						{ label: 'MCP Server', slug: 'integrations/mcp' },
 						{ label: 'Bank Sync', slug: 'integrations/bank-sync' },
 						{ label: 'CSV Import', slug: 'integrations/csv-import' },
-						{ label: 'OpenClaw', slug: 'integrations/openclaw' },
 					],
 				},
 				{

@@ -1,0 +1,207 @@
+---
+title: Example Workflows
+description: Common tasks you can accomplish by chatting with your financial data through an AI agent.
+---
+
+These are real workflows you can run through any AI agent connected to Treeline — Claude Desktop, Claude Code, OpenClaw, or any MCP client.
+
+:::note[Date functions]
+Treeline's DuckDB runs without the ICU extension, so use `now()::TIMESTAMP::DATE` instead of `CURRENT_DATE`.
+:::
+
+## Financial Overview
+
+> "What's my financial snapshot?"
+
+The agent runs `tl status` to get account balances, then queries for recent transaction volume and trends.
+
+> "What's my net worth and how has it changed over the last 6 months?"
+
+```sql
+SELECT
+  DATE_TRUNC('month', snapshot_time) as month,
+  SUM(CASE WHEN a.classification = 'asset' THEN b.balance ELSE -b.balance END) as net_worth
+FROM balance_snapshots b
+JOIN accounts a USING (account_id)
+GROUP BY month
+ORDER BY month DESC
+LIMIT 6
+```
+
+## Spending Analysis
+
+> "How much did I spend on groceries last month?"
+
+```sql
+SELECT SUM(-amount) as total
+FROM transactions
+WHERE amount < 0
+  AND tags @> ['groceries']
+  AND posted_date >= DATE_TRUNC('month', now()::TIMESTAMP::DATE - INTERVAL '1 month')
+  AND posted_date < DATE_TRUNC('month', now()::TIMESTAMP::DATE)
+```
+
+> "What are my top 10 spending categories this month?"
+
+```sql
+SELECT category, SUM(-amount) as spent, COUNT(*) as txn_count
+FROM (
+  SELECT UNNEST(tags) as category, amount
+  FROM transactions
+  WHERE amount < 0
+    AND posted_date >= DATE_TRUNC('month', now()::TIMESTAMP::DATE)
+)
+GROUP BY category
+ORDER BY spent DESC
+LIMIT 10
+```
+
+> "Show me all transactions over $200 this week"
+
+```sql
+SELECT posted_date, description, amount, account_name
+FROM transactions
+WHERE ABS(amount) > 200
+  AND posted_date >= now()::TIMESTAMP::DATE - INTERVAL '7 days'
+ORDER BY ABS(amount) DESC
+```
+
+## Transaction Management
+
+> "Tag all Uber and Lyft transactions as transport"
+
+The agent finds matching transactions and uses the `tag` tool:
+
+```sql
+SELECT transaction_id FROM transactions
+WHERE description ILIKE '%uber%' OR description ILIKE '%lyft%'
+```
+
+Then applies the tag to all matching IDs.
+
+> "Find duplicate transactions"
+
+```sql
+SELECT description, amount, posted_date, COUNT(*) as occurrences
+FROM transactions
+GROUP BY description, amount, posted_date
+HAVING COUNT(*) > 1
+ORDER BY posted_date DESC
+```
+
+> "What transactions are untagged?"
+
+```sql
+SELECT posted_date, description, amount, account_name
+FROM transactions
+WHERE tags IS NULL OR ARRAY_LENGTH(tags) = 0
+ORDER BY posted_date DESC
+LIMIT 20
+```
+
+## Budget Tracking
+
+> "Am I on track with my budget this month?"
+
+If you have a `budget-targets` [skill](/ai-agents/user-skills/), the agent reads your targets and compares against actual spending:
+
+```sql
+SELECT tag, SUM(-amount) as spent
+FROM (
+  SELECT UNNEST(tags) as tag, amount
+  FROM transactions
+  WHERE amount < 0
+    AND posted_date >= DATE_TRUNC('month', now()::TIMESTAMP::DATE)
+)
+GROUP BY tag
+ORDER BY spent DESC
+```
+
+> "Which categories am I overspending in compared to last month?"
+
+```sql
+WITH this_month AS (
+  SELECT tag, SUM(-amount) as spent
+  FROM (
+    SELECT UNNEST(tags) as tag, amount
+    FROM transactions
+    WHERE amount < 0
+      AND posted_date >= DATE_TRUNC('month', now()::TIMESTAMP::DATE)
+  )
+  GROUP BY tag
+),
+last_month AS (
+  SELECT tag, SUM(-amount) as spent
+  FROM (
+    SELECT UNNEST(tags) as tag, amount
+    FROM transactions
+    WHERE amount < 0
+      AND posted_date >= DATE_TRUNC('month', now()::TIMESTAMP::DATE - INTERVAL '1 month')
+      AND posted_date < DATE_TRUNC('month', now()::TIMESTAMP::DATE)
+  )
+  GROUP BY tag
+)
+SELECT
+  t.tag,
+  t.spent as this_month,
+  l.spent as last_month,
+  t.spent - l.spent as difference
+FROM this_month t
+JOIN last_month l USING (tag)
+WHERE t.spent > l.spent
+ORDER BY difference DESC
+```
+
+## Recurring Transactions
+
+> "What are my recurring monthly charges?"
+
+```sql
+SELECT
+  description,
+  ROUND(AVG(amount), 2) as avg_amount,
+  COUNT(*) as occurrences,
+  MIN(posted_date) as first_seen,
+  MAX(posted_date) as last_seen
+FROM transactions
+WHERE amount < 0
+GROUP BY description
+HAVING COUNT(*) >= 3
+  AND MAX(posted_date) >= now()::TIMESTAMP::DATE - INTERVAL '60 days'
+ORDER BY avg_amount ASC
+```
+
+## Bank Sync
+
+> "Sync my accounts and tell me what's new"
+
+The agent runs sync, then queries for recently posted transactions:
+
+```sql
+SELECT posted_date, description, amount, account_name
+FROM transactions
+ORDER BY posted_date DESC
+LIMIT 20
+```
+
+## Data Export
+
+> "Export all my 2025 transactions to CSV"
+
+```bash
+tl query --format csv "SELECT * FROM transactions WHERE posted_date BETWEEN '2025-01-01' AND '2025-12-31' ORDER BY posted_date" > 2025-transactions.csv
+```
+
+> "Give me a monthly income vs. expenses breakdown for this year"
+
+```sql
+SELECT
+  strftime('%Y-%m', posted_date) as month,
+  SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income,
+  SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) as expenses,
+  SUM(amount) as net
+FROM transactions
+WHERE posted_date >= '2026-01-01'
+GROUP BY month
+ORDER BY month
+```

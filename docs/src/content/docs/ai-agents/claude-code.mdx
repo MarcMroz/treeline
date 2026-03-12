@@ -1,0 +1,37 @@
+---
+title: Claude Code
+description: Use Treeline from Claude Code with MCP tools or CLI commands.
+---
+
+Claude Code can interact with Treeline in two ways: through the MCP server (tools) or directly via CLI commands. Both work well — use whichever fits your workflow.
+
+## MCP Setup
+
+Add Treeline as an MCP server:
+
+```bash
+claude mcp add treeline -- tl mcp
+```
+
+This gives Claude Code access to Treeline's MCP tools (`status`, `query`, `sync`, `tag`, etc.) alongside your other tools.
+
+## CLI Access
+
+Claude Code can also run `tl` commands directly in its shell. This is useful when you want to pipe output, chain commands, or use CLI-only features like `tl import` or `tl backup`.
+
+```bash
+tl status --json
+tl query "SELECT * FROM transactions WHERE amount < -100" --json
+tl skills list --json
+```
+
+## Example Session
+
+Once connected, just ask questions naturally:
+
+- "What's my checking account balance?"
+- "Show me all untagged transactions from this month"
+- "Write a query that shows my spending trend by category over the last 6 months"
+- "Create a skill that tracks my freelance income categories"
+
+Claude Code will use the appropriate Treeline tool or CLI command to answer.

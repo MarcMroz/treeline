@@ -239,12 +239,13 @@ tl query "SELECT posted_date, amount, description FROM transactions LIMIT 10"
 **Spending by tag this month:**
 
 ```sql
-SELECT
-  UNNEST(tags) as tag,
-  SUM(-amount) as total
-FROM transactions
-WHERE amount < 0
-  AND posted_date >= DATE_TRUNC('month', CURRENT_DATE)
+SELECT tag, SUM(-amount) as total
+FROM (
+  SELECT UNNEST(tags) as tag, amount
+  FROM transactions
+  WHERE amount < 0
+    AND posted_date >= DATE_TRUNC('month', now()::TIMESTAMP::DATE)
+)
 GROUP BY tag
 ORDER BY total DESC
 ```
@@ -255,8 +256,8 @@ ORDER BY total DESC
 SELECT
   DATE_TRUNC('month', snapshot_time) as month,
   SUM(CASE
-    WHEN a.classification = 'asset' THEN balance
-    ELSE -balance
+    WHEN a.classification = 'asset' THEN b.balance
+    ELSE -b.balance
   END) as net_worth
 FROM balance_snapshots b
 JOIN accounts a USING (account_id)

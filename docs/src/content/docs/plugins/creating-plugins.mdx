@@ -435,12 +435,13 @@ FROM transactions ORDER BY posted_date DESC LIMIT 20
 -- Monthly spending by account
 SELECT account_name, SUM(-amount) as spent
 FROM transactions
-WHERE amount < 0 AND posted_date >= DATE_TRUNC('month', CURRENT_DATE)
+WHERE amount < 0 AND posted_date >= DATE_TRUNC('month', now()::TIMESTAMP::DATE)
 GROUP BY account_name ORDER BY spent DESC
 
 -- Transaction count per tag
-SELECT UNNEST(tags) as tag, COUNT(*) as cnt
-FROM transactions GROUP BY tag ORDER BY cnt DESC
+SELECT tag, COUNT(*) as cnt
+FROM (SELECT UNNEST(tags) as tag FROM transactions)
+GROUP BY tag ORDER BY cnt DESC
 
 -- Account summary
 SELECT name, account_type, classification, institution_name

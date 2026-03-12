@@ -1,0 +1,117 @@
+---
+title: CLI for Agents
+description: How AI agents use the Treeline CLI for structured financial queries and automation.
+---
+
+The `tl` CLI is designed for programmatic use. Every command supports `--json` for structured output, making it easy for agents to parse results and chain operations.
+
+## Structured Output
+
+Add `--json` to any command for machine-readable output:
+
+```bash
+tl status --json
+```
+
+```json
+{
+  "total_accounts": 3,
+  "total_transactions": 1465,
+  "total_snapshots": 1572,
+  "total_integrations": 1,
+  "integration_names": ["simplefin"],
+  "accounts": [
+    { "id": "dfcd0adb-...", "name": "Checking - 5349 (5349)", "institution_name": "U.S. Bank" },
+    { "id": "d8cd9e0e-...", "name": "Citi Double Cash Card-6862 (6862)", "institution_name": "Citibank" }
+  ],
+  "date_range": { "earliest": "2025-06-20", "latest": "2026-03-10" }
+}
+```
+
+Query results use a columns + rows format:
+
+```bash
+tl query "SELECT posted_date, amount, description FROM transactions LIMIT 2" --json
+```
+
+```json
+{
+  "columns": ["posted_date", "amount", "description"],
+  "rows": [
+    ["2025-10-02", -23.22, "MCDONALD'S F11996 SAMMAMISH WA"],
+    ["2025-10-05", -30.58, "MCDONALD'S F4965 ISSAQUAH WA"]
+  ],
+  "row_count": 2
+}
+```
+
+## Key Commands for Agents
+
+### Read Operations (Safe)
+
+| Command | Description |
+|---------|-------------|
+| `tl status --json` | Account balances, transaction counts, integrations |
+| `tl query "SQL" --json` | Read-only SQL query (database opened read-only) |
+| `tl skills list --json` | List user-created skills |
+| `tl skills read <path>` | Read a skill file |
+| `tl doctor --json` | Database health checks |
+
+### Write Operations
+
+| Command | Description |
+|---------|-------------|
+| `tl query "SQL" --allow-writes` | SQL with write access (INSERT, UPDATE, DELETE) |
+| `tl sync --json` | Sync from connected bank integrations |
+| `tl tag <tag> --ids "id1,id2"` | Apply tags to transactions |
+| `tl import file.csv --account "Name"` | Import transactions from CSV |
+
+### Schema Introspection
+
+Agents can discover the database structure through SQL:
+
+```bash
+# List all tables and views
+tl query "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'main'" --json
+
+# Describe a specific table
+tl query "DESCRIBE transactions" --json
+```
+
+See the [Database Schema](/reference/database-schema/) reference for the full schema documentation.
+
+## Safe vs. Write Queries
+
+By default, `tl query` opens the database in **read-only mode**. This means agents can freely explore data without risk of accidental modification:
+
+```bash
+# Safe — database opened read-only
+tl query "SELECT SUM(-amount) FROM transactions WHERE tags @> ['groceries']" --json
+
+# Requires explicit opt-in
+tl query "UPDATE sys_transactions SET tags = ['food'] WHERE description ILIKE '%grocery%'" --allow-writes
+```
+
+The MCP server enforces this same separation with distinct `query` (read-only) and `query_write` (write-enabled) tools.
+
+## Output Formats
+
+```bash
+tl query "SELECT * FROM transactions LIMIT 5"               # Table (human-readable)
+tl query "SELECT * FROM transactions LIMIT 5" --json         # JSON (for agents)
+tl query "SELECT * FROM transactions LIMIT 5" --format csv   # CSV (for export)
+```
+
+## Error Handling
+
+Query errors are returned as plain text on stderr:
+
+```bash
+tl query "SELECT * FROM nonexistent_table" --json
+```
+
+```
+Catalog Error: Table with name nonexistent_table does not exist!
+```
+
+Agents should check the exit code (non-zero on failure) and parse stderr for error details.

@@ -1,0 +1,93 @@
+---
+title: MCP Server
+description: Connect Treeline to Claude Desktop, Claude Code, Gemini CLI, and other MCP clients.
+---
+
+Treeline includes a built-in [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server. This lets AI agents query your finances, sync accounts, tag transactions, and more — all from your local database.
+
+## Prerequisites
+
+The MCP server is built into the Treeline CLI (`tl`). If you haven't installed it yet, see the [CLI installation guide](/cli/#installation).
+
+## Setup
+
+### Claude Desktop
+
+#### Option 1: Extension (recommended)
+
+Download the Treeline extension (`.mcpb` file) from the [latest release](https://github.com/treeline-money/treeline/releases/latest) for your platform:
+
+- **macOS (Apple Silicon)** — `treeline-macos-arm64.mcpb`
+- **macOS (Intel)** — `treeline-macos-x64.mcpb`
+- **Windows** — `treeline-windows-x64.mcpb`
+
+Open the file and Claude Desktop will install it automatically.
+
+#### Option 2: Manual config
+
+Open **Settings > Developer > Edit Config** and add:
+
+```json
+{
+  "mcpServers": {
+    "treeline": {
+      "command": "tl",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop. You should see Treeline listed in the tools menu.
+
+This config enables Treeline in both **Chat** and **Cowork** mode. In Cowork sessions, Claude can use Treeline tools autonomously.
+
+### Claude Code
+
+```bash
+claude mcp add treeline -- tl mcp
+```
+
+This makes Treeline tools available in your Claude Code sessions.
+
+### Gemini CLI, Cursor, and others
+
+Any client that supports the MCP STDIO transport can connect. Point it at `tl mcp` as the command.
+
+:::note[ChatGPT]
+ChatGPT only supports [remote HTTP MCP servers](https://developers.openai.com/api/docs/mcp/) — not local STDIO. Since Treeline is local-first, it isn't compatible with ChatGPT's MCP implementation today.
+:::
+
+## Available Tools
+
+Once connected, the agent has access to these tools:
+
+| Tool | Description | Access |
+|------|-------------|--------|
+| `status` | Account balances, transaction counts, and connected integrations | Read-only |
+| `query` | Execute a read-only SQL query against your financial database | Read-only |
+| `query_write` | Execute a SQL query with write access (INSERT, UPDATE, DELETE) | Read/Write |
+| `sync` | Pull latest transactions from connected bank integrations | Read/Write |
+| `tag` | Apply tags to transactions | Read/Write |
+| `doctor` | Run database health checks | Read-only |
+| `demo` | Enable, disable, or check demo mode | Read/Write |
+| `skills_list` | List available user-created financial skills | Read-only |
+| `skills_read` | Read a file from a skill directory | Read-only |
+
+## Usage
+
+You don't need to mention Treeline or MCP by name. Just ask questions naturally:
+
+- "What's my net worth?"
+- "How much did I spend on groceries last month?"
+- "Show me my largest transactions this week"
+- "Tag all Starbucks transactions as coffee"
+- "Sync my bank accounts"
+
+The agent will choose the appropriate Treeline tool based on your question.
+
+## Privacy
+
+The MCP server runs locally and reads directly from your Treeline database on disk. No financial data is sent to any server by the MCP server itself.
+
+The AI agent you're using (Claude, etc.) will see query results in order to answer your questions. The LLM provider sees the data you ask about, but not your full database.
