@@ -13,7 +13,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use super::{get_context, get_treeline_dir};
+use super::{get_context, get_treeline_dir, skills};
 use treeline_core::services::DemoService;
 
 // =============================================================================
@@ -186,6 +186,30 @@ fn tool_definitions() -> Value {
                     "required": ["action"],
                     "additionalProperties": false
                 }
+            },
+            {
+                "name": "skills_list",
+                "description": "List available agent skills. Returns skill names, descriptions, and file listings. Skills contain user-created financial knowledge like tax tracking rules, budget targets, and tagging conventions.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false
+                }
+            },
+            {
+                "name": "skills_read",
+                "description": "Read a file from a skill directory. Use with paths from skills_list output, e.g. 'tax-tracking/SKILL.md' or 'budget-mgmt/references/targets.md'.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "File path relative to the skills directory (e.g. 'tax-tracking/SKILL.md')"
+                        }
+                    },
+                    "required": ["path"],
+                    "additionalProperties": false
+                }
             }
         ]
     })
@@ -241,6 +265,15 @@ fn execute_tool(name: &str, args: &Value) -> Result<Value, String> {
                 .and_then(|v| v.as_str())
                 .ok_or("Missing required parameter: action")?;
             tool_demo(action)
+        }
+        "skills_list" => skills::mcp_list(),
+        "skills_read" => {
+            let path = args
+                .get("path")
+                .and_then(|v| v.as_str())
+                .ok_or("Missing required parameter: path")?;
+            let content = skills::mcp_read(path)?;
+            Ok(json!({ "content": content }))
         }
         _ => Err(format!("Unknown tool: {}", name)),
     }
@@ -338,7 +371,8 @@ fn handle_request(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                     "serverInfo": {
                         "name": "treeline",
                         "version": env!("CARGO_PKG_VERSION")
-                    }
+                    },
+                    "instructions": "You are connected to Treeline, a local-first personal finance app backed by DuckDB. Use the query tool for financial analysis and skills_list to discover user-created financial skills."
                 }),
             ))
         }
