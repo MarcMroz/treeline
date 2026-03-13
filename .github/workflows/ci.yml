@@ -79,6 +79,9 @@ jobs:
         with:
           prefix-key: "ci-core-${{ steps.cache-key.outputs.week }}"
 
+      - name: Encryption diagnostic
+        run: cargo test --test aaa_encryption_diagnostic -- --nocapture
+
       - name: Run tests
         run: cargo test
 
