@@ -10,8 +10,8 @@ mod commands;
 mod output;
 
 use commands::{
-    backup, compact, demo, doctor, encrypt, import, logs, mcp, plugin, query, setup, skills,
-    status, sync, tag, update,
+    backup, compact, demo, doctor, encrypt, import, logs, mcp, plugin, query, schema, setup,
+    skills, status, sync, tag, update,
 };
 
 /// Treeline - personal finance in your terminal
@@ -117,6 +117,18 @@ enum Commands {
         /// Allow write operations (INSERT, UPDATE, DELETE, etc). Without this flag, the database is opened read-only.
         #[arg(long)]
         allow_writes: bool,
+    },
+
+    /// Show database schema (tables, views, columns)
+    Schema {
+        /// Show only a specific table or view (use schema.table for plugin tables, e.g. plugin_budget.categories)
+        table: Option<String>,
+        /// Include plugin schemas
+        #[arg(long)]
+        plugins: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Apply tags to transactions
@@ -307,6 +319,11 @@ fn run(cli: Cli) -> Result<()> {
             let fmt = if json { "json".to_string() } else { format };
             query::run(sql.as_deref(), file.as_deref(), &fmt, allow_writes)
         }
+        Commands::Schema {
+            table,
+            plugins,
+            json,
+        } => schema::run(table.as_deref(), plugins, json),
         Commands::Tag {
             tags,
             ids,

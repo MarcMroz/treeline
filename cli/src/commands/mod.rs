@@ -10,6 +10,7 @@ pub mod logs;
 pub mod mcp;
 pub mod plugin;
 pub mod query;
+pub mod schema;
 pub mod setup;
 pub mod skills;
 pub mod status;

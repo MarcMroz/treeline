@@ -95,7 +95,7 @@ fn tool_definitions() -> Value {
             },
             {
                 "name": "query",
-                "description": "Execute a read-only SQL query against the DuckDB database. Use this for any financial analysis — balances, spending, trends, etc. The database contains tables: accounts, transactions (with tags array), sys_balance_snapshots. Plugin tables live in plugin_<name> schemas.",
+                "description": "Execute a read-only SQL query against the DuckDB database. Use this for any financial analysis — balances, spending, trends, etc. Use the 'schema' tool first to discover available tables and columns.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -228,6 +228,30 @@ fn tool_definitions() -> Value {
                 }
             },
             {
+                "name": "schema",
+                "description": "Get database schema (tables, views, and their columns). Use to discover what's queryable before writing SQL. Optionally filter to a specific table or view. Use 'plugins: true' to include plugin schemas, or 'table: \"plugin_budget.categories\"' for a specific plugin table.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "table": {
+                            "type": "string",
+                            "description": "Optional table or view name. Use schema.table for plugin tables (e.g. 'plugin_budget.categories')."
+                        },
+                        "plugins": {
+                            "type": "boolean",
+                            "description": "Include plugin schemas (default: false)",
+                            "default": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Database Schema",
+                    "readOnlyHint": true,
+                    "openWorldHint": false
+                }
+            },
+            {
                 "name": "skills_list",
                 "description": "List available agent skills. Returns skill names, descriptions, and file listings. Skills contain user-created financial knowledge like tax tracking rules, budget targets, and tagging conventions.",
                 "inputSchema": {
@@ -342,6 +366,11 @@ fn execute_tool(name: &str, args: &Value) -> Result<Value, String> {
                 .ok_or("Missing required parameter: action")?;
             tool_demo(action)
         }
+        "schema" => {
+            let table = args.get("table").and_then(|v| v.as_str());
+            let plugins = args.get("plugins").and_then(|v| v.as_bool()).unwrap_or(false);
+            tool_schema(table, plugins)
+        }
         "skills_list" => skills::mcp_list(),
         "skills_read" => {
             let path = args
@@ -405,6 +434,92 @@ fn tool_tag(tags: &str, ids: Vec<String>, replace: bool) -> Result<Value, String
         .apply_tags(&ids, &tag_list, replace)
         .map_err(|e| e.to_string())?;
     serde_json::to_value(&result).map_err(|e| e.to_string())
+}
+
+fn tool_schema(table: Option<&str>, plugins: bool) -> Result<Value, String> {
+    let ctx = get_context().map_err(|e| e.to_string())?;
+
+    // Parse dot notation for schema.table
+    let (schema_filter, table_filter) = if let Some(filter) = table {
+        if let Some((schema, tbl)) = filter.split_once('.') {
+            (Some(schema), Some(tbl))
+        } else {
+            (None, Some(filter))
+        }
+    } else {
+        (None, None)
+    };
+
+    let schema_sql = if let Some(sf) = schema_filter {
+        format!(
+            "SELECT table_name, table_type, table_schema FROM information_schema.tables \
+             WHERE table_schema = '{}' ORDER BY table_type, table_name",
+            sf
+        )
+    } else if plugins || table_filter.is_none() {
+        let where_clause = if plugins {
+            "WHERE table_schema NOT IN ('information_schema', 'pg_catalog')"
+        } else {
+            "WHERE table_schema = 'main'"
+        };
+        format!(
+            "SELECT table_name, table_type, table_schema FROM information_schema.tables \
+             {} ORDER BY table_schema, table_type, table_name",
+            where_clause
+        )
+    } else {
+        "SELECT table_name, table_type, table_schema FROM information_schema.tables \
+         WHERE table_schema NOT IN ('information_schema', 'pg_catalog') \
+         ORDER BY CASE WHEN table_schema = 'main' THEN 0 ELSE 1 END, table_schema, table_type, table_name"
+            .to_string()
+    };
+
+    let tables_result = ctx.query_service.execute_readonly(&schema_sql).map_err(|e| e.to_string())?;
+    let show_schema = plugins || schema_filter.is_some();
+
+    let mut tables = Vec::new();
+    for row in &tables_result.rows {
+        let name = row[0].as_str().unwrap_or_default();
+        let table_type = row[1].as_str().unwrap_or_default();
+        let tbl_schema = row[2].as_str().unwrap_or_default();
+
+        if let Some(filter) = table_filter {
+            if !name.eq_ignore_ascii_case(filter) {
+                continue;
+            }
+        }
+
+        let describe_sql = format!(
+            "SELECT column_name, data_type, CASE WHEN is_nullable = 'YES' THEN true ELSE false END as nullable \
+             FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}' ORDER BY ordinal_position",
+            tbl_schema, name
+        );
+        let columns_result = ctx.query_service.execute_readonly(&describe_sql).map_err(|e| e.to_string())?;
+
+        let columns: Vec<Value> = columns_result.rows.iter().map(|row| {
+            json!({
+                "name": row[0].as_str().unwrap_or_default(),
+                "type": row[1].as_str().unwrap_or_default(),
+                "nullable": row[2].as_bool().unwrap_or(true)
+            })
+        }).collect();
+
+        let mut entry = json!({
+            "name": name,
+            "type": table_type,
+            "columns": columns
+        });
+        if show_schema {
+            entry.as_object_mut().unwrap().insert("schema".to_string(), json!(tbl_schema));
+        }
+        tables.push(entry);
+    }
+
+    if table_filter.is_some() && tables.is_empty() {
+        return Err(format!("Table or view '{}' not found", table.unwrap_or_default()));
+    }
+
+    Ok(json!({ "tables": tables }))
 }
 
 fn tool_doctor() -> Result<Value, String> {

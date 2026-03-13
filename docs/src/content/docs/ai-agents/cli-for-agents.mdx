@@ -52,6 +52,7 @@ tl query "SELECT posted_date, amount, description FROM transactions LIMIT 2" --j
 | Command | Description |
 |---------|-------------|
 | `tl status --json` | Account balances, transaction counts, integrations |
+| `tl schema --json` | Database schema (tables, views, columns, types) |
 | `tl query "SQL" --json` | Read-only SQL query (database opened read-only) |
 | `tl skills list --json` | List user-created skills |
 | `tl skills read <path>` | Read a skill file |
@@ -68,17 +69,15 @@ tl query "SELECT posted_date, amount, description FROM transactions LIMIT 2" --j
 
 ### Schema Introspection
 
-Agents can discover the database structure through SQL:
-
 ```bash
-# List all tables and views
-tl query "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'main'" --json
+# List all tables and views with their columns
+tl schema --json
 
-# Describe a specific table
-tl query "DESCRIBE transactions" --json
+# Describe a specific table or view
+tl schema transactions --json
 ```
 
-See the [Database Schema](/reference/database-schema/) reference for the full schema documentation.
+The `tl schema` command is purpose-built for agents — it returns structured JSON with table names, types, column names, data types, and nullability. See the [Database Schema](/reference/database-schema/) reference for documentation.
 
 ## Safe vs. Write Queries
 
