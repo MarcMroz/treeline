@@ -453,6 +453,47 @@ jobs:
 
           echo "=== CLI verification passed ==="
 
+      - name: Smoke test encrypt/decrypt (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          set -e
+          export TREELINE_DIR=$(mktemp -d)
+          echo "Using TREELINE_DIR=$TREELINE_DIR"
+
+          echo "=== Creating database with schema ==="
+          ./target/release/tl status --json || true
+
+          echo "=== Encrypting database ==="
+          export TREELINE_PASSWORD=smoke-test-pwd-123
+          ./target/release/tl encrypt --json
+
+          echo "=== Verifying encryption status ==="
+          STATUS=$(./target/release/tl encrypt status --json)
+          echo "$STATUS"
+          echo "$STATUS" | grep -q '"encrypted": true'
+
+          echo "=== Verifying data accessible with password ==="
+          TL_DB_PASSWORD=smoke-test-pwd-123 ./target/release/tl status --json
+
+          echo "=== Verifying data inaccessible without password ==="
+          unset TREELINE_PASSWORD
+          if ./target/release/tl status --json 2>/dev/null; then
+            echo "ERROR: Should have failed without password"
+            exit 1
+          fi
+          echo "Correctly failed without password"
+
+          echo "=== Decrypting database ==="
+          export TREELINE_PASSWORD=smoke-test-pwd-123
+          ./target/release/tl decrypt --json
+
+          echo "=== Verifying data accessible without password ==="
+          unset TREELINE_PASSWORD
+          ./target/release/tl status --json
+
+          echo "=== Encrypt/decrypt smoke test passed ==="
+          rm -rf "$TREELINE_DIR"
+
       - name: Verify CLI (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -470,6 +511,53 @@ jobs:
           try { .\target\release\tl.exe status } catch { }
 
           Write-Output "=== CLI verification passed ==="
+
+      - name: Smoke test encrypt/decrypt (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:TREELINE_DIR = Join-Path $env:RUNNER_TEMP "tl-smoke-test"
+          New-Item -ItemType Directory -Path $env:TREELINE_DIR -Force | Out-Null
+          Write-Output "Using TREELINE_DIR=$env:TREELINE_DIR"
+
+          Write-Output "=== Creating database with schema ==="
+          try { .\target\release\tl.exe status --json } catch { }
+
+          Write-Output "=== Encrypting database ==="
+          $env:TREELINE_PASSWORD = "smoke-test-pwd-123"
+          .\target\release\tl.exe encrypt --json
+
+          Write-Output "=== Verifying encryption status ==="
+          $status = .\target\release\tl.exe encrypt status --json | Out-String
+          Write-Output $status
+          if ($status -notmatch '"encrypted": true') { throw "Expected encrypted: true" }
+
+          Write-Output "=== Verifying data accessible with password ==="
+          $env:TL_DB_PASSWORD = "smoke-test-pwd-123"
+          .\target\release\tl.exe status --json
+
+          Write-Output "=== Verifying data inaccessible without password ==="
+          Remove-Item Env:\TREELINE_PASSWORD -ErrorAction SilentlyContinue
+          Remove-Item Env:\TL_DB_PASSWORD -ErrorAction SilentlyContinue
+          $failed = $false
+          try { .\target\release\tl.exe status --json 2>$null } catch { $failed = $true }
+          if (-not $failed) {
+            # Check exit code manually
+            if ($LASTEXITCODE -eq 0) { throw "Should have failed without password" }
+          }
+          Write-Output "Correctly failed without password"
+
+          Write-Output "=== Decrypting database ==="
+          $env:TREELINE_PASSWORD = "smoke-test-pwd-123"
+          .\target\release\tl.exe decrypt --json
+
+          Write-Output "=== Verifying data accessible without password ==="
+          Remove-Item Env:\TREELINE_PASSWORD -ErrorAction SilentlyContinue
+          .\target\release\tl.exe status --json
+
+          Write-Output "=== Encrypt/decrypt smoke test passed ==="
+          Remove-Item -Recurse -Force $env:TREELINE_DIR
 
       - name: Upload CLI artifact (Unix)
         if: runner.os != 'Windows'
