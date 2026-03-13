@@ -10,6 +10,7 @@ use base64::Engine;
 use duckdb::Connection;
 use serde::Serialize;
 
+use crate::adapters::duckdb::ensure_encryption_support;
 use crate::domain::{EncryptionMetadata, EncryptionStatus};
 
 /// Default Argon2 parameters matching Python CLI
@@ -176,6 +177,9 @@ impl EncryptionService {
             let conn = Connection::open_in_memory_with_flags(config)
                 .context("Failed to open in-memory connection")?;
 
+            // Ensure OpenSSL crypto module is available for write encryption
+            ensure_encryption_support(&conn)?;
+
             // Attach encrypted database
             conn.execute_batch(&format!(
                 "ATTACH '{}' AS enc (ENCRYPTION_KEY '{}')",
@@ -242,6 +246,8 @@ impl EncryptionService {
                 .context("Failed to configure database")?;
             let conn = Connection::open_in_memory_with_flags(config)
                 .context("Failed to open in-memory connection")?;
+            // Ensure OpenSSL crypto module is available
+            ensure_encryption_support(&conn)?;
             conn.execute_batch(&format!(
                 "ATTACH '{}' AS enc (ENCRYPTION_KEY '{}', READ_ONLY)",
                 self.db_path.display(),
@@ -278,13 +284,15 @@ impl EncryptionService {
             fs::remove_file(&temp_db_path)?;
         }
 
-        // Export encrypted database to parquet files
+        // Export encrypted database to CSV files
         {
             let config = duckdb::Config::default()
                 .enable_autoload_extension(false)
                 .context("Failed to configure database")?;
             let conn = Connection::open_in_memory_with_flags(config)
                 .context("Failed to open in-memory connection")?;
+            // Ensure OpenSSL crypto module is available
+            ensure_encryption_support(&conn)?;
             conn.execute_batch(&format!(
                 "ATTACH '{}' AS enc (ENCRYPTION_KEY '{}')",
                 self.db_path.display(),

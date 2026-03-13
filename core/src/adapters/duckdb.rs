@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use fs2::FileExt;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use duckdb::{params, Connection};
 use rust_decimal::Decimal;
@@ -15,6 +15,34 @@ use uuid::Uuid;
 
 use crate::domain::{Account, AutoTagRule, BalanceSnapshot, Transaction};
 use crate::services::MigrationService;
+
+/// Ensure the DuckDB connection has full encryption support (not just read-only).
+///
+/// DuckDB 1.4.2+ disabled mbedtls for write encryption (CVE-2025-64429) and requires
+/// the OpenSSL crypto module from the httpfs extension. Without it, ATTACH with
+/// ENCRYPTION_KEY fails on write operations with "read-only crypto module" error.
+///
+/// This function installs and loads httpfs if needed. It's safe to call multiple times —
+/// if httpfs is already loaded, it's a no-op. The INSTALL command downloads the extension
+/// from DuckDB's CDN on first use and caches it in ~/.duckdb/extensions/.
+///
+/// Note: This is NOT autoloading. Extension autoloading is disabled to avoid macOS code
+/// signing issues with cached extensions. This is an explicit, controlled install+load
+/// that only happens during encryption operations.
+pub fn ensure_encryption_support(conn: &Connection) -> Result<()> {
+    // Best-effort: try to install and load httpfs for OpenSSL crypto support.
+    // If httpfs is already loaded or cached, this is fast. If it needs to download,
+    // it requires network access. If it fails entirely, encryption will still work
+    // on systems where the crypto module is already available (e.g., macOS with
+    // cached extensions).
+    let _ = conn.execute_batch("INSTALL httpfs");
+    conn.execute_batch("LOAD httpfs")
+        .context("Failed to load httpfs extension for encryption support. \
+                  DuckDB requires the httpfs extension for database encryption. \
+                  Ensure you have network access for the initial download, or \
+                  install it manually with: duckdb -c 'INSTALL httpfs'")?;
+    Ok(())
+}
 
 /// Validate SQL syntax before execution to catch malformed queries early.
 /// This prevents crashes from malformed SQL reaching the database engine.
@@ -178,6 +206,8 @@ impl DuckDbRepository {
             // Encrypted database: open in-memory first, then ATTACH encrypted file
             let config = duckdb::Config::default().enable_autoload_extension(false)?;
             let conn = Connection::open_in_memory_with_flags(config)?;
+            // Ensure OpenSSL crypto module is available for encrypted database access
+            ensure_encryption_support(&conn)?;
             let access_mode = if read_only { ", READ_ONLY" } else { "" };
             conn.execute(
                 &format!(
@@ -1968,6 +1998,11 @@ impl DuckDbRepository {
         // This allows us to attach both source and target databases
         let config = duckdb::Config::default().enable_autoload_extension(false)?;
         let compact_conn = Connection::open_in_memory_with_flags(config)?;
+
+        // Ensure OpenSSL crypto module is available if database is encrypted
+        if self.encryption_key.is_some() {
+            ensure_encryption_support(&compact_conn)?;
+        }
 
         // Attach the source database (current db_path)
         if let Some(key) = &self.encryption_key {
