@@ -87,8 +87,8 @@ jobs:
         run: |
           chmod +x "$appimage"
 
-          echo "Starting Treeline with xvfb..."
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" ./"$appimage" &
+          echo "Starting Treeline with xvfb (encryption diagnostic enabled)..."
+          TREELINE_CHECK_ENCRYPTION=1 xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" ./"$appimage" &
           APP_PID=$!
 
           # Give the app time to initialize (or crash)
@@ -158,8 +158,9 @@ jobs:
           BINARY_NAME=$(ls /Applications/Treeline.app/Contents/MacOS/ | head -1)
           echo "Binary name: $BINARY_NAME"
 
-          echo "Launching Treeline..."
-          open /Applications/Treeline.app
+          echo "Launching Treeline with encryption diagnostic..."
+          # Launch via binary directly so env vars are passed (open doesn't forward them)
+          TREELINE_CHECK_ENCRYPTION=1 "/Applications/Treeline.app/Contents/MacOS/$BINARY_NAME" &
 
           # Give the app time to initialize (or crash)
           sleep 15
@@ -175,6 +176,22 @@ jobs:
             echo "--- Recent crash reports ---"
             ls -t ~/Library/Logs/DiagnosticReports/*reeline* 2>/dev/null | head -5 || echo "(none)"
             exit 1
+          fi
+
+      - name: Check encryption support
+        if: success()
+        run: |
+          # Check logs for encryption diagnostic result
+          TREELINE_DIR="${HOME}/.treeline"
+          if [ -f "$TREELINE_DIR/logs.duckdb" ]; then
+            echo "Checking encryption diagnostic in logs..."
+            # Use the installed app's bundled tl or a simple DuckDB query
+            # The log entry will be encryption_support_ok or encryption_support_failed
+            duckdb "$TREELINE_DIR/logs.duckdb" \
+              "SELECT event, error_message FROM sys_logs WHERE event LIKE 'encryption_support%' ORDER BY timestamp DESC LIMIT 1" \
+              2>/dev/null || echo "Could not query logs (duckdb CLI not available)"
+          else
+            echo "Warning: logs.duckdb not found — app may not have initialized logging"
           fi
 
   # NOTE: windows-latest has Visual C++ Redistributable pre-installed, so this

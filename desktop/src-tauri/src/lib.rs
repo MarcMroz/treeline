@@ -3181,6 +3181,43 @@ pub fn run() {
                 }
             }
 
+            // Diagnostic: verify DuckDB encryption support (httpfs extension)
+            // Only runs when TREELINE_CHECK_ENCRYPTION=1 to avoid impacting normal startup.
+            // Usage: TREELINE_CHECK_ENCRYPTION=1 open /Applications/Treeline.app
+            if std::env::var("TREELINE_CHECK_ENCRYPTION").is_ok() {
+                let enc_check = (|| -> Result<(), String> {
+                    let config = duckdb::Config::default()
+                        .enable_autoload_extension(false)
+                        .map_err(|e| format!("config: {e}"))?;
+                    let conn = Connection::open_in_memory_with_flags(config)
+                        .map_err(|e| format!("open: {e}"))?;
+                    let _ = conn.execute_batch("INSTALL httpfs");
+                    conn.execute_batch("LOAD httpfs")
+                        .map_err(|e| format!("load httpfs: {e}"))?;
+                    Ok(())
+                })();
+                match &enc_check {
+                    Ok(()) => eprintln!("Encryption support: httpfs loaded successfully"),
+                    Err(e) => eprintln!("Encryption support: httpfs failed — {e}"),
+                }
+                if let Ok(guard) = logging_state.logger.lock() {
+                    if let Some(logger) = guard.as_ref() {
+                        match &enc_check {
+                            Ok(()) => {
+                                let _ = logger.log_event("encryption_support_ok");
+                            }
+                            Err(e) => {
+                                let _ = logger.log_error(
+                                    "encryption_support_failed",
+                                    &format!("httpfs: {e}"),
+                                    None,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
             // If TREELINE_DIR is set (dev/testing), add its plugins dir to asset protocol scope
             if let Ok(custom_dir) = std::env::var("TREELINE_DIR") {
                 let plugins_path = PathBuf::from(&custom_dir).join("plugins");

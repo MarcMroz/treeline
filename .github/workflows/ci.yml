@@ -471,7 +471,7 @@ jobs:
           ./target/release/tl encrypt --json
 
           echo "=== Verifying encryption status ==="
-          STATUS=$(./target/release/tl encrypt status --json)
+          STATUS=$(./target/release/tl encrypt --json status)
           echo "$STATUS"
           echo "$STATUS" | grep -q '"encrypted": true'
 
@@ -532,7 +532,7 @@ jobs:
           .\target\release\tl.exe encrypt --json
 
           Write-Output "=== Verifying encryption status ==="
-          $status = .\target\release\tl.exe encrypt status --json | Out-String
+          $status = .\target\release\tl.exe encrypt --json status | Out-String
           Write-Output $status
           if ($status -notmatch '"encrypted": true') { throw "Expected encrypted: true" }
 
