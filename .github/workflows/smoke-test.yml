@@ -88,7 +88,7 @@ jobs:
           chmod +x "$appimage"
 
           echo "Starting Treeline with xvfb (encryption diagnostic enabled)..."
-          TREELINE_CHECK_ENCRYPTION=1 xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" ./"$appimage" &
+          TREELINE_CHECK_ENCRYPTION=1 xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" ./"$appimage" 2>/tmp/app-stderr.log &
           APP_PID=$!
 
           # Give the app time to initialize (or crash)
@@ -101,10 +101,22 @@ jobs:
             kill -9 $APP_PID 2>/dev/null || true
           else
             echo "✗ Treeline crashed or failed to start on Linux"
-            # Check if the AppImage extracted and ran but the inner process crashed
-            echo "--- Checking for error output ---"
+            echo "--- stderr output ---"
+            cat /tmp/app-stderr.log || true
             wait $APP_PID 2>/dev/null || true
             exit 1
+          fi
+
+          # Verify encryption support
+          echo "--- Encryption diagnostic ---"
+          cat /tmp/app-stderr.log || true
+          if grep -q "httpfs loaded successfully" /tmp/app-stderr.log; then
+            echo "✓ Encryption support verified"
+          elif grep -q "httpfs failed" /tmp/app-stderr.log; then
+            echo "✗ Encryption support FAILED"
+            exit 1
+          else
+            echo "⚠ No encryption diagnostic output found"
           fi
 
   test-macos:
@@ -160,7 +172,7 @@ jobs:
 
           echo "Launching Treeline with encryption diagnostic..."
           # Launch via binary directly so env vars are passed (open doesn't forward them)
-          TREELINE_CHECK_ENCRYPTION=1 "/Applications/Treeline.app/Contents/MacOS/$BINARY_NAME" &
+          TREELINE_CHECK_ENCRYPTION=1 "/Applications/Treeline.app/Contents/MacOS/$BINARY_NAME" 2>/tmp/app-stderr.log &
 
           # Give the app time to initialize (or crash)
           sleep 15
@@ -170,7 +182,8 @@ jobs:
             pkill -x "$BINARY_NAME" || true
           else
             echo "✗ Treeline is not running on macOS ${{ matrix.arch }}"
-            # Diagnostic info for debugging
+            echo "--- stderr output ---"
+            cat /tmp/app-stderr.log || true
             echo "--- Processes matching 'treeline' (case insensitive) ---"
             pgrep -il treeline || echo "(none)"
             echo "--- Recent crash reports ---"
@@ -178,20 +191,16 @@ jobs:
             exit 1
           fi
 
-      - name: Check encryption support
-        if: success()
-        run: |
-          # Check logs for encryption diagnostic result
-          TREELINE_DIR="${HOME}/.treeline"
-          if [ -f "$TREELINE_DIR/logs.duckdb" ]; then
-            echo "Checking encryption diagnostic in logs..."
-            # Use the installed app's bundled tl or a simple DuckDB query
-            # The log entry will be encryption_support_ok or encryption_support_failed
-            duckdb "$TREELINE_DIR/logs.duckdb" \
-              "SELECT event, error_message FROM sys_logs WHERE event LIKE 'encryption_support%' ORDER BY timestamp DESC LIMIT 1" \
-              2>/dev/null || echo "Could not query logs (duckdb CLI not available)"
+          # Verify encryption support in signed app
+          echo "--- Encryption diagnostic ---"
+          cat /tmp/app-stderr.log || true
+          if grep -q "httpfs loaded successfully" /tmp/app-stderr.log; then
+            echo "✓ Encryption support verified in signed app"
+          elif grep -q "httpfs failed" /tmp/app-stderr.log; then
+            echo "✗ Encryption support FAILED in signed app"
+            exit 1
           else
-            echo "Warning: logs.duckdb not found — app may not have initialized logging"
+            echo "⚠ No encryption diagnostic output found"
           fi
 
   # NOTE: windows-latest has Visual C++ Redistributable pre-installed, so this
