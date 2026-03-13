@@ -6,8 +6,8 @@
   "description": "Chat with your finances. Query balances, spending, budgets, and transactions from your local Treeline database.",
   "long_description": "Treeline Money is a local-first personal finance app backed by DuckDB. This extension gives Claude direct access to your financial data — query balances, analyze spending, track budgets, tag transactions, and sync from your bank. All data stays on your device.",
   "author": {
-    "name": "Treeline Money",
-    "url": "https://treeline.money"
+    "name": "Zack Schrag",
+    "url": "https://github.com/zack-schrag"
   },
   "repository": {
     "type": "git",
@@ -33,6 +33,7 @@
     { "name": "tag", "description": "Apply tags to transactions." },
     { "name": "doctor", "description": "Run database health checks." },
     { "name": "demo", "description": "Manage demo mode with sample financial data." },
+    { "name": "schema", "description": "Get database schema (tables, views, columns) for SQL query planning." },
     { "name": "skills_list", "description": "List available user-created financial skills." },
     { "name": "skills_read", "description": "Read a file from a skill directory." },
     { "name": "skills_write", "description": "Create or update a skill file." }

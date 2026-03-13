@@ -41,6 +41,46 @@ See the [Getting Started guide](https://docs.treeline.money/getting-started/inst
 - [Building Plugins](https://docs.treeline.money/plugins/creating-plugins/)
 - [Database Schema](https://docs.treeline.money/reference/database-schema/)
 
+## AI / MCP Extension
+
+Treeline ships as a [Desktop Extension](https://docs.treeline.money/ai-agents/mcp-server/) for Claude Desktop. Install the `.mcpb` file from the [latest release](https://github.com/treeline-money/treeline/releases/latest), or use the CLI directly as an MCP server.
+
+### Usage Examples
+
+**Analyze your spending:**
+> "What are my top spending categories this month?"
+
+**Find large transactions:**
+> "Show me all transactions over $200 this week"
+
+**Organize with tags:**
+> "Tag all Uber and Lyft transactions as transport"
+
+**Track your net worth:**
+> "What's my net worth and how has it changed over the last 6 months?"
+
+**Discover recurring charges:**
+> "What are my recurring monthly charges?"
+
+### Testing with Demo Mode
+
+Reviewers and new users can try the MCP tools without real bank data:
+
+```bash
+tl demo on    # Load sample financial data
+tl demo off   # Remove sample data
+```
+
+## Privacy Policy
+
+Treeline is local-first. All financial data stays on your device in a DuckDB database. No telemetry, no analytics, no data collection. See the full [Privacy Policy](https://treeline.money/privacy).
+
+## Support
+
+- [GitHub Issues](https://github.com/treeline-money/treeline/issues)
+- [Discord](https://discord.gg/EcNvBnSft5)
+- [Documentation](https://docs.treeline.money)
+
 ## Contributing
 
 See the [Contributing guide](https://docs.treeline.money/contributing/) for development setup.
