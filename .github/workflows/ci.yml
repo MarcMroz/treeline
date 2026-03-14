@@ -485,18 +485,29 @@ jobs:
           echo "=== Verifying data accessible with password ==="
           TL_DB_PASSWORD=smoke-test-pwd-123 ./target/release/tl status --json
 
-          echo "=== Locking keychain and verifying data inaccessible ==="
+          echo "=== Testing lock/unlock (keychain-dependent) ==="
           unset TREELINE_PASSWORD
-          ./target/release/tl encrypt lock
-          if ./target/release/tl status --json 2>/dev/null; then
-            echo "ERROR: Should have failed without password"
-            exit 1
+          # Check if keychain is available on this platform
+          KEYCHAIN=$(./target/release/tl encrypt --json status | grep -o '"keychain_available": [a-z]*' | grep -o '[a-z]*$')
+          if [ "$KEYCHAIN" = "true" ]; then
+            echo "Keychain available — testing lock/unlock"
+            ./target/release/tl encrypt lock
+            if ./target/release/tl status --json 2>/dev/null; then
+              echo "ERROR: Should have failed without password"
+              exit 1
+            fi
+            echo "Correctly failed without password"
+            ./target/release/tl encrypt unlock --password smoke-test-pwd-123
+            ./target/release/tl status --json
+          else
+            echo "Keychain not available — testing env var path"
+            if ./target/release/tl status --json 2>/dev/null; then
+              echo "ERROR: Should have failed without password"
+              exit 1
+            fi
+            echo "Correctly failed without password"
+            TL_DB_PASSWORD=smoke-test-pwd-123 ./target/release/tl status --json
           fi
-          echo "Correctly failed without password"
-
-          echo "=== Unlocking via CLI and verifying data accessible ==="
-          ./target/release/tl encrypt unlock --password smoke-test-pwd-123
-          ./target/release/tl status --json
 
           echo "=== Decrypting database ==="
           export TREELINE_PASSWORD=smoke-test-pwd-123
