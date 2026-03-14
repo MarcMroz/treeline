@@ -1990,8 +1990,8 @@ fn lock_database(
     *key_guard = None;
     drop(key_guard);
 
-    // Clear from OS keychain
-    KeychainService::delete_key().map_err(|e| format!("Failed to clear keychain: {}", e))?;
+    // Best-effort: clear from OS keychain (may not be available on all platforms)
+    let _ = KeychainService::delete_key();
 
     // Invalidate context so next access triggers re-auth
     context_state.invalidate();

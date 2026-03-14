@@ -176,7 +176,8 @@ pub fn run(command: Option<EncryptCommands>, password: Option<String>, json: boo
                 anyhow::bail!("Database is not encrypted. Nothing to lock.");
             }
 
-            KeychainService::delete_key()?;
+            // Best-effort: keychain may not be available (e.g., headless Linux)
+            let _ = KeychainService::delete_key();
 
             if json {
                 println!(
