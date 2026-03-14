@@ -1,29 +1,39 @@
 ---
 title: Installation
-description: Download and install the Treeline desktop app and CLI.
+description: Download and install the Treeline desktop app, CLI, and Claude Desktop extension.
 ---
 
-Treeline runs entirely on your machine. There are no accounts to create, no servers to connect to, and no data leaving your computer. Choose your installation method below.
+Treeline runs entirely on your machine. There are no accounts to create, no servers to connect to, and no data leaving your computer.
+
+There are three ways to use Treeline. They all share the same local database, so you can use one or all three:
+
+- **Desktop App** — a visual interface for managing your finances
+- **CLI** — terminal commands, SQL queries, and the engine behind all AI agent integrations
+- **Claude Desktop** — ask Claude about your finances in natural language
+
+Not sure? Start with the desktop app — you can add the others anytime.
 
 ## Desktop App
 
-The desktop app provides a visual interface for managing your finances, running queries, and installing plugins.
-
-### Download
-
 Visit [treeline.money/download](https://treeline.money/download) to download the installer for your platform:
 
-- **macOS** - `.dmg` for Apple Silicon (M1/M2/M3/M4) and Intel (x86_64)
-- **Windows** - `.exe` installer
-- **Linux** - `.AppImage`
+- **macOS** — `.dmg` for Apple Silicon (M1/M2/M3/M4) and Intel
+- **Windows** — `.exe` installer
+- **Linux** — `.AppImage`
 
 After installing, launch Treeline from your Applications folder (macOS), Start menu (Windows), or application launcher (Linux).
 
 On first launch, Treeline creates a data directory at `~/.treeline/` for your database and settings. No internet connection is required.
 
-## CLI Installation
+### Platform notes
 
-The `tl` command-line tool lets you manage accounts, import data, query transactions, and automate workflows from your terminal.
+- **macOS:** Open the `.dmg`, drag to Applications. On first run, right-click and select "Open" to bypass Gatekeeper.
+- **Windows:** Run the installer. Click "More info" then "Run anyway" if SmartScreen warns.
+- **Linux:** Make the AppImage executable (`chmod +x`) and run it.
+
+## CLI
+
+The `tl` command-line tool lets you manage accounts, import data, query transactions, and automate workflows from your terminal. It's also how AI agents like Claude Code, Gemini CLI, and OpenClaw connect to Treeline.
 
 ### macOS and Linux
 
@@ -43,19 +53,42 @@ irm https://treeline.money/install.ps1 | iex
 
 This installs `tl.exe` to `~/.treeline/bin/` and adds it to your PATH. Restart your terminal after installation.
 
-### Verify Installation
+### Verify installation
 
 ```bash
 tl --version
 ```
 
-You should see output like:
+## Claude Desktop
 
+Give [Claude Desktop](https://claude.ai/download) direct access to your Treeline database. Great for querying and analysis — ask about spending, check budgets, tag transactions in natural language. You'll still need the desktop app or CLI to connect your bank and import transactions.
+
+There are two setup options:
+
+### Option 1: Extension (no terminal needed)
+
+Download the `.mcpb` extension from [treeline.money/download](https://treeline.money/download) and open it. Claude Desktop installs it automatically. The extension bundles its own copy of the CLI.
+
+### Option 2: Use the CLI
+
+If you already installed the CLI above, open **Settings > Developer > Edit Config** in Claude Desktop and add:
+
+```json
+{
+  "mcpServers": {
+    "treeline": {
+      "command": "tl",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
-tl 26.1.3001
-```
+
+Restart Claude Desktop. This way `tl update` keeps Claude Desktop's connection current automatically — no re-download needed.
+
+See the [MCP Server](/ai-agents/mcp-server/) docs for the full list of available tools.
 
 ## What's Next
 
-- [Quick Start](/getting-started/quick-start) - Take a tour of Treeline's features
-- [Importing Data](/getting-started/importing-data) - Bring in your financial data
+- [Quick Start](/getting-started/quick-start) — Take a tour of Treeline's features
+- [Importing Data](/getting-started/importing-data) — Bring in your financial data

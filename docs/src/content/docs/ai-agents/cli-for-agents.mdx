@@ -16,13 +16,13 @@ tl status --json
 ```json
 {
   "total_accounts": 3,
-  "total_transactions": 1465,
-  "total_snapshots": 1572,
+  "total_transactions": 847,
+  "total_snapshots": 920,
   "total_integrations": 1,
   "integration_names": ["simplefin"],
   "accounts": [
-    { "id": "dfcd0adb-...", "name": "Checking - 5349 (5349)", "institution_name": "U.S. Bank" },
-    { "id": "d8cd9e0e-...", "name": "Citi Double Cash Card-6862 (6862)", "institution_name": "Citibank" }
+    { "id": "a1b2c3d4-...", "name": "Checking (1234)", "institution_name": "First National Bank" },
+    { "id": "e5f6a7b8-...", "name": "Rewards Card (5678)", "institution_name": "Example Credit Union" }
   ],
   "date_range": { "earliest": "2025-06-20", "latest": "2026-03-10" }
 }
@@ -38,8 +38,8 @@ tl query "SELECT posted_date, amount, description FROM transactions LIMIT 2" --j
 {
   "columns": ["posted_date", "amount", "description"],
   "rows": [
-    ["2025-10-02", -23.22, "MCDONALD'S F11996 SAMMAMISH WA"],
-    ["2025-10-05", -30.58, "MCDONALD'S F4965 ISSAQUAH WA"]
+    ["2025-10-02", -45.30, "WHOLE FOODS MARKET #10234"],
+    ["2025-10-05", -12.75, "CORNER COFFEE SHOP"]
   ],
   "row_count": 2
 }

@@ -5,27 +5,17 @@ description: Connect Treeline to Claude Desktop, Claude Code, Gemini CLI, and ot
 
 Treeline includes a built-in [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server. This lets AI agents query your finances, sync accounts, tag transactions, and more — all from your local database.
 
-## Prerequisites
-
-The MCP server is built into the Treeline CLI (`tl`). If you haven't installed it yet, see the [CLI installation guide](/cli/#installation).
-
 ## Setup
+
+Pick the client you're using. You can use more than one — they all share the same local database.
 
 ### Claude Desktop
 
-#### Option 1: Extension (recommended)
+Two ways to connect, depending on whether you use the terminal.
 
-Download the Treeline extension (`.mcpb` file) from the [latest release](https://github.com/treeline-money/treeline/releases/latest) for your platform:
+**Don't use the terminal?** Download the `.mcpb` extension from [treeline.money/download](https://treeline.money/download) and open it. Claude Desktop installs it automatically — no configuration needed.
 
-- **macOS (Apple Silicon)** — `treeline-macos-arm64.mcpb`
-- **macOS (Intel)** — `treeline-macos-x64.mcpb`
-- **Windows** — `treeline-windows-x64.mcpb`
-
-Open the file and Claude Desktop will install it automatically.
-
-#### Option 2: Manual config
-
-Open **Settings > Developer > Edit Config** and add:
+**Already have the CLI?** Open **Settings > Developer > Edit Config** in Claude Desktop and add:
 
 ```json
 {
@@ -40,19 +30,23 @@ Open **Settings > Developer > Edit Config** and add:
 
 Restart Claude Desktop. You should see Treeline listed in the tools menu.
 
-This config enables Treeline in both **Chat** and **Cowork** mode. In Cowork sessions, Claude can use Treeline tools autonomously.
+:::tip[Which should I choose?]
+The extension bundles its own copy of the CLI, so to get new features you download a new extension. The CLI config uses `tl` from your PATH — run `tl update` and Claude Desktop picks up the new version on next restart. If you already have the CLI installed, the CLI config is the better choice.
+:::
+
+Both options work in **Chat** and **Cowork** mode.
 
 ### Claude Code
+
+Requires the [Treeline CLI](/cli/#installation).
 
 ```bash
 claude mcp add treeline -- tl mcp
 ```
 
-This makes Treeline tools available in your Claude Code sessions.
-
 ### Gemini CLI, Cursor, and others
 
-Any client that supports the MCP STDIO transport can connect. Point it at `tl mcp` as the command.
+Requires the [Treeline CLI](/cli/#installation). Any client that supports the MCP STDIO transport can connect — point it at `tl mcp` as the command.
 
 :::note[ChatGPT]
 ChatGPT only supports [remote HTTP MCP servers](https://developers.openai.com/api/docs/mcp/) — not local STDIO. Since Treeline is local-first, it isn't compatible with ChatGPT's MCP implementation today.
@@ -75,6 +69,8 @@ Once connected, the agent has access to these tools:
 | `skills_list` | List available user-created financial skills | Read-only |
 | `skills_read` | Read a file from a skill directory | Read-only |
 | `skills_write` | Create or update a skill file | Read/Write |
+| `encryption_status` | Check database encryption and lock status | Read-only |
+| `version` | Get current CLI version and check for updates | Read-only |
 
 ## Usage
 

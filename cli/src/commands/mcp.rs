@@ -334,6 +334,20 @@ fn tool_definitions() -> Value {
                 }
             },
             {
+                "name": "version",
+                "description": "Get the current Treeline CLI version and check if an update is available. If an update is available, guide the user to run 'tl update' in their terminal. If using the Claude Desktop extension (.mcpb), they'll need to download the latest from https://treeline.money/download",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Version & Update Check",
+                    "readOnlyHint": true,
+                    "openWorldHint": true
+                }
+            },
+            {
                 "name": "skills_write",
                 "description": "Write a file to a skill directory. Use to create or update skills on behalf of the user. Path must include skill name and filename, e.g. 'budget-targets/SKILL.md'. Directories are created automatically. SKILL.md files should have YAML frontmatter with name and description fields.",
                 "inputSchema": {
@@ -420,6 +434,7 @@ fn execute_tool(name: &str, args: &Value) -> Result<Value, String> {
             tool_schema(table, plugins)
         }
         "encryption_status" => tool_encryption_status(),
+        "version" => tool_version(),
         "skills_list" => skills::mcp_list(),
         "skills_read" => {
             let path = args
@@ -569,6 +584,36 @@ fn tool_schema(table: Option<&str>, plugins: bool) -> Result<Value, String> {
     }
 
     Ok(json!({ "tables": tables }))
+}
+
+fn tool_version() -> Result<Value, String> {
+    let current_version = env!("CARGO_PKG_VERSION");
+
+    // Check cached update state for latest known version
+    let update_state = super::update::UpdateState::load();
+    let latest_version = update_state.latest_version.as_deref();
+
+    let update_available = latest_version.map_or(false, |latest| {
+        latest != current_version && latest != format!("v{}", current_version)
+    });
+
+    let mut result = json!({
+        "current_version": current_version,
+        "update_available": update_available,
+    });
+
+    if let Some(latest) = latest_version {
+        result["latest_version"] = json!(latest);
+    }
+
+    if update_available {
+        result["update_instructions"] = json!({
+            "cli": "Run 'tl update' in your terminal",
+            "mcpb_extension": "Download the latest from https://treeline.money/download"
+        });
+    }
+
+    Ok(result)
 }
 
 fn tool_encryption_status() -> Result<Value, String> {
