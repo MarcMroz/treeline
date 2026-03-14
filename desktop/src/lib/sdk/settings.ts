@@ -877,6 +877,7 @@ export interface EncryptionStatus {
   locked: boolean;
   algorithm: string | null;
   version: number | null;
+  keychain_available: boolean;
 }
 
 /**
@@ -916,6 +917,14 @@ export async function enableEncryption(password: string): Promise<void> {
  */
 export async function disableEncryption(password: string): Promise<void> {
   return invoke<void>("disable_encryption", { password });
+}
+
+/**
+ * Lock the database — clears key from memory and OS keychain
+ * The user will need to re-enter their password next time.
+ */
+export async function lockDatabase(): Promise<void> {
+  return invoke<void>("lock_database");
 }
 
 // ============================================================================

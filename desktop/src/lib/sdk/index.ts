@@ -92,6 +92,7 @@ export {
   getEncryptionStatus,
   tryAutoUnlock,
   unlockDatabase,
+  lockDatabase,
   enableEncryption,
   disableEncryption,
   // Watch Folder / Pending Imports

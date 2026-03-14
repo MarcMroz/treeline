@@ -114,7 +114,7 @@
     </div>
 
     <p class="session-hint">
-      Your key will be stored in memory for this session only.
+      Your key will be stored in the OS keychain for seamless access.
     </p>
   </div>
 

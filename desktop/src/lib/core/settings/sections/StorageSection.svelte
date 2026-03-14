@@ -10,6 +10,7 @@
     getEncryptionStatus,
     enableEncryption,
     disableEncryption,
+    lockDatabase,
     formatBytes,
     toast,
     type EncryptionStatus,
@@ -33,6 +34,7 @@
   let decryptPassword = $state("");
   let isEncrypting = $state(false);
   let isDecrypting = $state(false);
+  let isLocking = $state(false);
   let encryptError = $state("");
 
   // Backup state
@@ -135,6 +137,19 @@
       encryptError = e instanceof Error ? e.message : String(e);
     } finally {
       isDecrypting = false;
+    }
+  }
+
+  async function handleLock() {
+    isLocking = true;
+    try {
+      await lockDatabase();
+      toast.success("Database locked", "Encryption key cleared from memory and keychain");
+      await loadEncryptionStatus();
+    } catch (e) {
+      toast.error(`Failed to lock database: ${e}`);
+    } finally {
+      isLocking = false;
     }
   }
 
@@ -262,6 +277,16 @@
 
       <div class="encryption-actions">
         {#if encryptionStatus?.encrypted}
+          <button class="btn secondary" onclick={handleLock} disabled={isLocking || encryptionStatus?.locked}>
+            <Icon name="lock" size={14} />
+            {#if isLocking}
+              Locking...
+            {:else if encryptionStatus?.locked}
+              Locked
+            {:else}
+              Lock
+            {/if}
+          </button>
           <button class="btn danger" onclick={openDecryptModal}>
             <Icon name="unlock" size={14} />
             Disable Encryption
@@ -276,12 +301,13 @@
 
       {#if encryptionStatus?.encrypted}
         <p class="encryption-hint">
-          You'll need to enter your password each time you open the app.
+          Your encryption key is stored in the OS keychain for seamless access
+          across the app, CLI, and MCP. Use Lock to clear it.
         </p>
       {:else}
         <p class="encryption-hint">
-          After enabling encryption, you'll need to enter your password
-          each time you open the app.
+          Encrypt your database with a password. The key is stored in your
+          OS keychain so you don't need to re-enter it each time.
         </p>
       {/if}
     {/if}

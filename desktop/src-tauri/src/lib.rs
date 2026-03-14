@@ -20,7 +20,8 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use treeline_core::config::ColumnMappings;
 use treeline_core::services::{
     BackfillExecuteResult, BackupService, BalanceSnapshotPreview, DemoService, EncryptionService,
-    EntryPoint, ImportOptions, LogEvent, LoggingService, NumberFormat, PluginService,
+    EntryPoint, ImportOptions, KeychainService, LogEvent, LoggingService, NumberFormat,
+    PluginService,
 };
 use treeline_core::TreelineContext;
 
@@ -212,6 +213,7 @@ struct EncryptionStatus {
     locked: bool, // true if encrypted but no key in memory
     algorithm: Option<String>,
     version: Option<i32>,
+    keychain_available: bool,
 }
 
 /// Read encryption metadata from encryption.json
@@ -1726,23 +1728,25 @@ fn get_encryption_status(
     encryption_state: State<EncryptionState>,
 ) -> Result<EncryptionStatus, String> {
     let metadata = read_encryption_metadata();
+    let keychain_available = KeychainService::is_available();
 
     match metadata {
         Some(m) if m.encrypted => {
-            // Check if we have a key (either in state or keychain)
+            // Check if we have a key in memory or keychain
             let has_key = {
                 let key_guard = encryption_state
                     .key
                     .lock()
                     .map_err(|_| "Failed to lock encryption state")?;
                 key_guard.is_some()
-            };
+            } || KeychainService::get_key().unwrap_or(None).is_some();
 
             Ok(EncryptionStatus {
                 encrypted: true,
                 locked: !has_key,
                 algorithm: Some(m.algorithm),
                 version: Some(m.version),
+                keychain_available,
             })
         }
         _ => Ok(EncryptionStatus {
@@ -1750,11 +1754,12 @@ fn get_encryption_status(
             locked: false,
             algorithm: None,
             version: None,
+            keychain_available,
         }),
     }
 }
 
-/// Try to auto-unlock using keychain key (called on app startup)
+/// Try to auto-unlock using in-memory key or OS keychain (called on app startup)
 #[tauri::command]
 fn try_auto_unlock(encryption_state: State<EncryptionState>) -> Result<bool, String> {
     // Check if database is encrypted (returns None in demo mode)
@@ -1764,16 +1769,38 @@ fn try_auto_unlock(encryption_state: State<EncryptionState>) -> Result<bool, Str
     };
 
     // Check if already unlocked (key in memory from this session)
-    let key_guard = encryption_state
-        .key
-        .lock()
-        .map_err(|_| "Failed to lock encryption state")?;
-
-    if key_guard.is_some() {
-        return Ok(true); // Already unlocked
+    {
+        let key_guard = encryption_state
+            .key
+            .lock()
+            .map_err(|_| "Failed to lock encryption state")?;
+        if key_guard.is_some() {
+            return Ok(true); // Already unlocked
+        }
     }
 
-    // Database is encrypted and no key in memory - need password
+    // Try keychain
+    if let Ok(Some(key)) = KeychainService::get_key() {
+        // Validate the key still works (user may have re-encrypted from CLI)
+        let db_path = get_db_path()?;
+        let treeline_dir = get_treeline_dir()?;
+        let encryption_service = EncryptionService::new(treeline_dir, db_path);
+
+        if encryption_service.validate_key(&key).is_ok() {
+            // Valid key — store in memory for this session
+            let mut key_guard = encryption_state
+                .key
+                .lock()
+                .map_err(|_| "Failed to lock encryption state")?;
+            *key_guard = Some(key);
+            return Ok(true);
+        } else {
+            // Stale key — clear it
+            let _ = KeychainService::delete_key();
+        }
+    }
+
+    // Database is encrypted and no key available - need password
     Ok(false)
 }
 
@@ -1831,7 +1858,11 @@ fn unlock_database(
         .key
         .lock()
         .map_err(|_| "Failed to lock encryption state")?;
-    *key_guard = Some(key_hex);
+    *key_guard = Some(key_hex.clone());
+    drop(key_guard);
+
+    // Best-effort: also store in OS keychain for cross-app access
+    let _ = KeychainService::store_key(&key_hex);
 
     Ok(())
 }
@@ -1889,7 +1920,11 @@ async fn enable_encryption(
         .key
         .lock()
         .map_err(|_| "Failed to lock encryption state")?;
-    *key_guard = Some(key_hex);
+    *key_guard = Some(key_hex.clone());
+    drop(key_guard);
+
+    // Best-effort: store in OS keychain for cross-app access
+    let _ = KeychainService::store_key(&key_hex);
 
     Ok(())
 }
@@ -1933,6 +1968,33 @@ async fn disable_encryption(
         .lock()
         .map_err(|_| "Failed to lock encryption state")?;
     *key_guard = None;
+    drop(key_guard);
+
+    // Best-effort: clear from OS keychain
+    let _ = KeychainService::delete_key();
+
+    Ok(())
+}
+
+/// Lock database — clear key from memory and OS keychain
+#[tauri::command]
+fn lock_database(
+    encryption_state: State<EncryptionState>,
+    context_state: State<TreelineContextState>,
+) -> Result<(), String> {
+    // Clear from memory
+    let mut key_guard = encryption_state
+        .key
+        .lock()
+        .map_err(|_| "Failed to lock encryption state")?;
+    *key_guard = None;
+    drop(key_guard);
+
+    // Clear from OS keychain
+    KeychainService::delete_key().map_err(|e| format!("Failed to clear keychain: {}", e))?;
+
+    // Invalidate context so next access triggers re-auth
+    context_state.invalidate();
 
     Ok(())
 }
@@ -2414,6 +2476,7 @@ mod tests {
             locked: false,
             algorithm: None,
             version: None,
+            keychain_available: true,
         };
 
         let json = serde_json::to_string(&status).expect("Should serialize");
@@ -2428,11 +2491,13 @@ mod tests {
             locked: true,
             algorithm: Some("argon2id".to_string()),
             version: Some(1),
+            keychain_available: true,
         };
 
         let json = serde_json::to_string(&status).expect("Should serialize");
         assert!(json.contains("\"encrypted\":true"));
         assert!(json.contains("\"locked\":true"));
+        assert!(json.contains("\"keychain_available\":true"));
     }
 
     // ============================================================================
@@ -3317,6 +3382,7 @@ pub fn run() {
             get_encryption_status,
             try_auto_unlock,
             unlock_database,
+            lock_database,
             enable_encryption,
             disable_encryption,
             // Theme commands
