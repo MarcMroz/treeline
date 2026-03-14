@@ -478,13 +478,18 @@ jobs:
           echo "=== Verifying data accessible with password ==="
           TL_DB_PASSWORD=smoke-test-pwd-123 ./target/release/tl status --json
 
-          echo "=== Verifying data inaccessible without password ==="
+          echo "=== Locking keychain and verifying data inaccessible ==="
           unset TREELINE_PASSWORD
+          ./target/release/tl encrypt lock
           if ./target/release/tl status --json 2>/dev/null; then
             echo "ERROR: Should have failed without password"
             exit 1
           fi
           echo "Correctly failed without password"
+
+          echo "=== Unlocking via CLI and verifying data accessible ==="
+          ./target/release/tl encrypt unlock --password smoke-test-pwd-123
+          ./target/release/tl status --json
 
           echo "=== Decrypting database ==="
           export TREELINE_PASSWORD=smoke-test-pwd-123
@@ -540,9 +545,10 @@ jobs:
           $env:TL_DB_PASSWORD = "smoke-test-pwd-123"
           .\target\release\tl.exe status --json
 
-          Write-Output "=== Verifying data inaccessible without password ==="
+          Write-Output "=== Locking keychain and verifying data inaccessible ==="
           Remove-Item Env:\TREELINE_PASSWORD -ErrorAction SilentlyContinue
           Remove-Item Env:\TL_DB_PASSWORD -ErrorAction SilentlyContinue
+          .\target\release\tl.exe encrypt lock
           $failed = $false
           try { .\target\release\tl.exe status --json 2>$null } catch { $failed = $true }
           if (-not $failed) {
@@ -550,6 +556,10 @@ jobs:
             if ($LASTEXITCODE -eq 0) { throw "Should have failed without password" }
           }
           Write-Output "Correctly failed without password"
+
+          Write-Output "=== Unlocking via CLI and verifying data accessible ==="
+          .\target\release\tl.exe encrypt unlock --password smoke-test-pwd-123
+          .\target\release\tl.exe status --json
 
           Write-Output "=== Decrypting database ==="
           $env:TREELINE_PASSWORD = "smoke-test-pwd-123"

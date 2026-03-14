@@ -54,6 +54,9 @@ zip.workspace = true
 # File locking (cross-platform)
 fs2.workspace = true
 
+# OS keychain
+keyring.workspace = true
+
 # URL parsing
 url = "2"
 

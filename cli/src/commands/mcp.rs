@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::{get_context, get_treeline_dir, skills};
-use treeline_core::services::DemoService;
+use treeline_core::services::{DemoService, EncryptionService, KeychainService};
 
 // =============================================================================
 // JSON-RPC 2.0 types
@@ -70,6 +70,40 @@ impl JsonRpcResponse {
             }),
         }
     }
+}
+
+// =============================================================================
+// MCP server instructions (sent during initialize)
+// =============================================================================
+
+/// Build instructions that include encryption status so the client knows
+/// immediately if the database is locked.
+fn build_instructions() -> String {
+    let base = "You are connected to Treeline, a local-first personal finance app backed by DuckDB. Use the query tool for financial analysis and skills_list to discover user-created financial skills.";
+
+    let treeline_dir = get_treeline_dir();
+    let db_path = treeline_dir.join("treeline.duckdb");
+    let encryption_service = EncryptionService::new(treeline_dir, db_path);
+
+    let is_encrypted = encryption_service.is_encrypted().unwrap_or(false);
+    if !is_encrypted {
+        return base.to_string();
+    }
+
+    // Check if we have a usable key
+    let has_env_key =
+        std::env::var("TL_DB_KEY").is_ok() || std::env::var("TL_DB_PASSWORD").is_ok();
+    let has_keychain_key = KeychainService::get_key().unwrap_or(None).is_some();
+
+    if has_env_key || has_keychain_key {
+        return base.to_string();
+    }
+
+    format!(
+        "{}\n\nIMPORTANT: The database is encrypted and locked. All data tools will fail until the user unlocks it. \
+         Ask the user to either open the Treeline app and enter their password, or run 'tl encrypt unlock' in their terminal.",
+        base
+    )
 }
 
 // =============================================================================
@@ -286,6 +320,20 @@ fn tool_definitions() -> Value {
                 }
             },
             {
+                "name": "encryption_status",
+                "description": "Check database encryption and lock status. If the database is encrypted and locked, all other tools will fail until the user unlocks it via the Treeline app or 'tl encrypt unlock' in their terminal.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Encryption Status",
+                    "readOnlyHint": true,
+                    "openWorldHint": false
+                }
+            },
+            {
                 "name": "skills_write",
                 "description": "Write a file to a skill directory. Use to create or update skills on behalf of the user. Path must include skill name and filename, e.g. 'budget-targets/SKILL.md'. Directories are created automatically. SKILL.md files should have YAML frontmatter with name and description fields.",
                 "inputSchema": {
@@ -371,6 +419,7 @@ fn execute_tool(name: &str, args: &Value) -> Result<Value, String> {
             let plugins = args.get("plugins").and_then(|v| v.as_bool()).unwrap_or(false);
             tool_schema(table, plugins)
         }
+        "encryption_status" => tool_encryption_status(),
         "skills_list" => skills::mcp_list(),
         "skills_read" => {
             let path = args
@@ -522,6 +571,28 @@ fn tool_schema(table: Option<&str>, plugins: bool) -> Result<Value, String> {
     Ok(json!({ "tables": tables }))
 }
 
+fn tool_encryption_status() -> Result<Value, String> {
+    let treeline_dir = get_treeline_dir();
+    let db_path = treeline_dir.join("treeline.duckdb");
+    let encryption_service = EncryptionService::new(treeline_dir, db_path);
+
+    let mut status = encryption_service.get_status().map_err(|e| e.to_string())?;
+
+    let keychain_available = KeychainService::is_available();
+    status.keychain_available = Some(keychain_available);
+
+    if status.encrypted {
+        let has_env_key =
+            std::env::var("TL_DB_KEY").is_ok() || std::env::var("TL_DB_PASSWORD").is_ok();
+        let has_keychain_key = KeychainService::get_key().unwrap_or(None).is_some();
+        status.locked = Some(!has_env_key && !has_keychain_key);
+    } else {
+        status.locked = Some(false);
+    }
+
+    serde_json::to_value(&status).map_err(|e| e.to_string())
+}
+
 fn tool_doctor() -> Result<Value, String> {
     let ctx = get_context().map_err(|e| e.to_string())?;
     let result = ctx.doctor_service.run_checks().map_err(|e| e.to_string())?;
@@ -564,6 +635,7 @@ fn handle_request(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
 
     match req.method.as_str() {
         "initialize" => {
+            let instructions = build_instructions();
             Some(JsonRpcResponse::success(
                 id,
                 json!({
@@ -575,7 +647,7 @@ fn handle_request(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                         "name": "treeline",
                         "version": env!("CARGO_PKG_VERSION")
                     },
-                    "instructions": "You are connected to Treeline, a local-first personal finance app backed by DuckDB. Use the query tool for financial analysis and skills_list to discover user-created financial skills."
+                    "instructions": instructions
                 }),
             ))
         }

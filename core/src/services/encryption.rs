@@ -107,6 +107,42 @@ impl EncryptionService {
         Ok(hex::encode(&key))
     }
 
+    /// Validate that a hex-encoded key can open the encrypted database.
+    ///
+    /// Attempts a read-only ATTACH and runs a test query. Returns Ok(()) if
+    /// the key is valid, or an error if it's wrong or the DB can't be opened.
+    pub fn validate_key(&self, key_hex: &str) -> Result<()> {
+        if !self.is_encrypted()? {
+            anyhow::bail!("Database is not encrypted");
+        }
+
+        let config = duckdb::Config::default()
+            .enable_autoload_extension(false)
+            .context("Failed to configure database")?;
+        let conn = Connection::open_in_memory_with_flags(config)
+            .context("Failed to open in-memory connection")?;
+        ensure_encryption_support(&conn)?;
+
+        conn.execute_batch(&format!(
+            "ATTACH '{}' AS validate_db (ENCRYPTION_KEY '{}', READ_ONLY)",
+            self.db_path.display(),
+            key_hex
+        ))
+        .map_err(|_| anyhow::anyhow!("Invalid encryption key"))?;
+
+        conn.execute_batch("USE validate_db")
+            .map_err(|_| anyhow::anyhow!("Invalid encryption key"))?;
+
+        conn.query_row(
+            "SELECT table_name FROM information_schema.tables LIMIT 1",
+            [],
+            |_| Ok(()),
+        )
+        .map_err(|_| anyhow::anyhow!("Invalid encryption key"))?;
+
+        Ok(())
+    }
+
     /// Enable encryption
     pub fn encrypt(
         &self,

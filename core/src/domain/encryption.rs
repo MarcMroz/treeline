@@ -81,6 +81,14 @@ pub struct EncryptionStatus {
     pub encrypted: bool,
     pub algorithm: Option<String>,
     pub version: Option<u32>,
+    /// Whether the database is locked (encrypted + no key available).
+    /// Set by the CLI/app layer after checking keychain and env vars.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locked: Option<bool>,
+    /// Whether the OS keychain is functional on this system.
+    /// Set by the CLI/app layer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keychain_available: Option<bool>,
 }
 
 impl EncryptionStatus {
@@ -89,6 +97,8 @@ impl EncryptionStatus {
             encrypted: false,
             algorithm: None,
             version: None,
+            locked: None,
+            keychain_available: None,
         }
     }
 
@@ -97,6 +107,8 @@ impl EncryptionStatus {
             encrypted: meta.encrypted,
             algorithm: Some(meta.algorithm.clone()),
             version: Some(meta.version),
+            locked: None,
+            keychain_available: None,
         }
     }
 }
