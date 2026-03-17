@@ -46,11 +46,17 @@
   }: Props = $props();
 
   let overlayEl = $state<HTMLDivElement | null>(null);
+  let mouseDownOnOverlay = false;
+
+  function handleOverlayMouseDown(e: MouseEvent) {
+    mouseDownOnOverlay = e.target === overlayEl;
+  }
 
   function handleOverlayClick(e: MouseEvent) {
-    if (e.target === overlayEl) {
+    if (e.target === overlayEl && mouseDownOnOverlay) {
       onclose();
     }
+    mouseDownOnOverlay = false;
   }
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -65,6 +71,7 @@
   <div
     class="modal-overlay"
     bind:this={overlayEl}
+    onmousedown={handleOverlayMouseDown}
     onclick={handleOverlayClick}
     onkeydown={handleKeyDown}
     role="dialog"
