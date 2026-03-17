@@ -38,6 +38,36 @@
   let searchQuery = $state("");
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Sort state
+  type SortColumn = "date" | "account" | "description" | "amount";
+  type SortDirection = "asc" | "desc";
+  let sortColumn = $state<SortColumn>("date");
+  let sortDirection = $state<SortDirection>("desc");
+
+  const sortColumnToSql: Record<SortColumn, string> = {
+    date: "t.transaction_date",
+    account: "COALESCE(a.nickname, t.account_name)",
+    description: "t.description",
+    amount: "t.amount",
+  };
+
+  const defaultSortDirection: Record<SortColumn, SortDirection> = {
+    date: "desc",
+    account: "asc",
+    description: "asc",
+    amount: "asc",
+  };
+
+  function toggleSort(column: SortColumn) {
+    if (sortColumn === column) {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      sortColumn = column;
+      sortDirection = defaultSortDirection[column];
+    }
+    loadTransactions();
+  }
+
   // Derived: check if search input has focus (replaces isSearching flag)
   function isSearchFocused(): boolean {
     return document.activeElement === searchInputEl;
@@ -519,7 +549,7 @@
       query += " WHERE " + conditions.join(" AND ");
     }
 
-    query += ` ORDER BY t.transaction_date DESC LIMIT ${PAGE_SIZE + 1} OFFSET ${offset}`;
+    query += ` ORDER BY ${sortColumnToSql[sortColumn]} ${sortDirection.toUpperCase()} LIMIT ${PAGE_SIZE + 1} OFFSET ${offset}`;
     return { sql: query, params };
   }
 
@@ -2272,10 +2302,18 @@
           >
             {#if isAllSelected}☑{:else if isSomeSelected}▣{:else}☐{/if}
           </button>
-          <div class="row-date header-label">Date</div>
-          <div class="row-account header-label">Account</div>
-          <div class="row-desc header-label">Description</div>
-          <div class="row-amount header-label">Amount<span class="header-copy-spacer"></span></div>
+          <button class="row-date header-label sortable" class:sorted={sortColumn === 'date'} onclick={() => toggleSort('date')} aria-sort={sortColumn === 'date' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+            Date{#if sortColumn === 'date'}<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>{/if}
+          </button>
+          <button class="row-account header-label sortable" class:sorted={sortColumn === 'account'} onclick={() => toggleSort('account')} aria-sort={sortColumn === 'account' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+            Account{#if sortColumn === 'account'}<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>{/if}
+          </button>
+          <button class="row-desc header-label sortable" class:sorted={sortColumn === 'description'} onclick={() => toggleSort('description')} aria-sort={sortColumn === 'description' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+            Description{#if sortColumn === 'description'}<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>{/if}
+          </button>
+          <button class="row-amount header-label sortable" class:sorted={sortColumn === 'amount'} onclick={() => toggleSort('amount')} aria-sort={sortColumn === 'amount' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+            Amount{#if sortColumn === 'amount'}<span class="sort-indicator" aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>{/if}<span class="header-copy-spacer"></span>
+          </button>
           <div class="row-tags header-label">Tags</div>
           <div class="row-menu-placeholder"></div>
         </div>
@@ -4005,6 +4043,37 @@
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .header-label.sortable {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+  }
+
+  .header-label.sortable:hover {
+    color: var(--text-primary);
+  }
+
+  .header-label.sortable.sorted {
+    color: var(--text-primary);
+  }
+
+  .sort-indicator {
+    font-size: 9px;
+    line-height: 1;
+    flex-shrink: 0;
   }
 
   .header-checkbox {
