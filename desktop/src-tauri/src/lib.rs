@@ -1404,7 +1404,10 @@ async fn save_file_dialog(
 
     match path {
         Some(file_path) => {
-            fs::write(file_path.as_path().unwrap(), &content)
+            let p = file_path
+                .as_path()
+                .ok_or_else(|| "Invalid file path".to_string())?;
+            fs::write(p, &content)
                 .map_err(|e| format!("Failed to write file: {}", e))?;
             Ok(true)
         }
