@@ -46,12 +46,13 @@
     selectedIndex = 0;
   });
 
-  // Focus input when opened
+  // Focus input when opened, reset state
   $effect(() => {
     if (isOpen && inputEl) {
       inputEl.focus();
       searchQuery = "";
       selectedIndex = 0;
+      mouseDownOnBackdrop = false;
     }
   });
 
@@ -83,8 +84,17 @@
     cmd.execute();
   }
 
-  function handleBackdropClick() {
-    isOpen = false;
+  let mouseDownOnBackdrop = false;
+
+  function handleBackdropMouseDown(e: MouseEvent) {
+    mouseDownOnBackdrop = e.target === e.currentTarget;
+  }
+
+  function handleBackdropClick(e: MouseEvent) {
+    if (e.target === e.currentTarget && mouseDownOnBackdrop) {
+      isOpen = false;
+    }
+    mouseDownOnBackdrop = false;
   }
 
   // Get flat index for highlighting
@@ -96,7 +106,7 @@
 {#if isOpen}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="palette-backdrop" onclick={handleBackdropClick}>
+  <div class="palette-backdrop" onmousedown={handleBackdropMouseDown} onclick={handleBackdropClick}>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="palette" onclick={(e) => e.stopPropagation()}>
