@@ -46,12 +46,13 @@
     selectedIndex = 0;
   });
 
-  // Focus input when opened
+  // Focus input when opened, reset state
   $effect(() => {
     if (isOpen && inputEl) {
       inputEl.focus();
       searchQuery = "";
       selectedIndex = 0;
+      mouseDownOnBackdrop = false;
     }
   });
 

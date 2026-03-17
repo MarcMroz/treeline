@@ -48,6 +48,12 @@
   let overlayEl = $state<HTMLDivElement | null>(null);
   let mouseDownOnOverlay = false;
 
+  // Reset tracking flag when modal opens/closes to prevent stale state
+  $effect(() => {
+    open;
+    mouseDownOnOverlay = false;
+  });
+
   function handleOverlayMouseDown(e: MouseEvent) {
     mouseDownOnOverlay = e.target === overlayEl;
   }
