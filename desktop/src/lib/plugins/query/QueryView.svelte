@@ -10,6 +10,7 @@
   import { sql } from "@codemirror/lang-sql";
   import { oneDark } from "@codemirror/theme-one-dark";
   import { themeManager } from "../../sdk";
+  import { invoke } from "@tauri-apps/api/core";
 
   // Plugin context for permission validation - query plugin has read/write access to all tables
   const PLUGIN_ID = "query";
@@ -580,7 +581,7 @@
     }
   }
 
-  function exportCSV() {
+  async function exportCSV() {
     if (!result) return;
 
     const escapeCSV = (val: unknown): string => {
@@ -597,10 +598,10 @@
     const rows = result.rows.map((row) => row.map(escapeCSV).join(","));
     const csv = [header, ...rows].join("\n");
 
-    downloadFile(csv, "query-results.csv", "text/csv");
+    await saveFile(csv, "query-results.csv", "CSV Files", ["csv"]);
   }
 
-  function exportJSON() {
+  async function exportJSON() {
     if (!result) return;
 
     const data = result.rows.map((row) => {
@@ -612,19 +613,23 @@
     });
 
     const json = JSON.stringify(data, null, 2);
-    downloadFile(json, "query-results.json", "application/json");
+    await saveFile(json, "query-results.json", "JSON Files", ["json"]);
   }
 
-  function downloadFile(content: string, filename: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  async function saveFile(content: string, filename: string, filterName: string, filterExtensions: string[]) {
+    try {
+      const saved = await invoke<boolean>("save_file_dialog", {
+        filename,
+        content,
+        filterName,
+        filterExtensions,
+      });
+      if (saved) {
+        toast.success("File saved successfully");
+      }
+    } catch (err) {
+      toast.error("Failed to save file", err instanceof Error ? err.message : String(err));
+    }
   }
 
   function formatQuery() {
