@@ -1382,6 +1382,39 @@ async fn pick_csv_file(app: AppHandle) -> Result<Option<String>, String> {
     Ok(file.map(|f| f.to_string()))
 }
 
+/// Open a save-file dialog and write content to the chosen path.
+/// Returns true if the file was saved, false if the user cancelled.
+#[tauri::command]
+async fn save_file_dialog(
+    app: AppHandle,
+    filename: String,
+    content: String,
+    filter_name: String,
+    filter_extensions: Vec<String>,
+) -> Result<bool, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let extensions: Vec<&str> = filter_extensions.iter().map(|s| s.as_str()).collect();
+    let path = app
+        .dialog()
+        .file()
+        .set_file_name(&filename)
+        .add_filter(&filter_name, &extensions)
+        .blocking_save_file();
+
+    match path {
+        Some(file_path) => {
+            let p = file_path
+                .as_path()
+                .ok_or_else(|| "Invalid file path".to_string())?;
+            fs::write(p, &content)
+                .map_err(|e| format!("Failed to write file: {}", e))?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+
 // ============================================================================
 // CSV Utilities (extracted for testability)
 // ============================================================================
@@ -3364,6 +3397,7 @@ pub fn run() {
             import_csv_preview,
             import_csv_execute,
             pick_csv_file,
+            save_file_dialog,
             get_csv_headers,
             list_pending_imports,
             move_imported_file,
